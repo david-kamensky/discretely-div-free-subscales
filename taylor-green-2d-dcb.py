@@ -180,7 +180,7 @@ tau_M = 1.0/sqrt(dot(u_mid,G*u_mid) + (2.0/Dt)**2
                  + (C_I**2)*(nu**2)*inner(G,G))
 uPrime = -tau_M*resStrong
 resStab = inner(uPrime,-Ladv(u_mid,v,q))*spline.dx \
-          + inner(v,spline.grad(u)*uPrime)*spline.dx \
+          + inner(v,spline.grad(u_mid)*uPrime)*spline.dx \
           - inner(spline.grad(v),outer(uPrime,uPrime))*spline.dx
 
 # Define nonlinear residual and Jacobian:
