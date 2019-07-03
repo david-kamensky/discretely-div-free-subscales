@@ -16,3 +16,4 @@ $ sudo pip3 install git+https://github.com/blechta/COFFEE.git@2018.1.0
 $ sudo pip3 install git+https://github.com/blechta/FInAT.git@2018.1.0
 $ sudo pip3 install singledispatch networkx pulp
 ```
+For more detailed information, refer to comments within the provided scripts.  
