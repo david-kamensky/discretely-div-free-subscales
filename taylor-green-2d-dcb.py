@@ -23,7 +23,7 @@ sys.setrecursionlimit(10000)
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('--NEL',dest='NEL',default=16,
+parser.add_argument('--Nel',dest='Nel',default=16,
                     help='Number of elements in each direction.')
 parser.add_argument('--kPrime',dest='kPrime',default=1,
                     help='Degree up to which velocity is complete.')
@@ -43,7 +43,7 @@ parser.add_argument('--penalty',dest='penalty',default=1e4,
                     help='Dimensionless penalty for iterated penalty solver.')
 
 args = parser.parse_args()
-NEL = int(args.NEL)
+Nel = int(args.Nel)
 kPrime = int(args.kPrime)
 Re = Constant(float(args.Re))
 T = float(args.T)
@@ -65,8 +65,8 @@ if(mpirank==0):
 degs = 2*[kPrime,]
 
 # Knot vectors for defining the control mesh.
-kvecs = [uniformKnots(degs[0],-math.pi,math.pi,NEL,False),
-         uniformKnots(degs[1],-math.pi,math.pi,NEL,False)]
+kvecs = [uniformKnots(degs[0],-math.pi,math.pi,Nel,False),
+         uniformKnots(degs[1],-math.pi,math.pi,Nel,False)]
 
 # Define a trivial mapping from parametric to physical space, via explicit
 # B-spline.
@@ -142,7 +142,7 @@ u_old = cartesianPushforwardRT(u_hat_old,spline.F)
 p = cartesianPushforwardW(p_hat,spline.F)
 
 # Partial time derivative:
-N_STEPS = NEL
+N_STEPS = Nel
 Dt = Constant(T/N_STEPS)
 u_t = (u - u_old)/Dt
 u_mid = 0.5*(u + u_old)
@@ -205,7 +205,7 @@ spline.linearSolver.parameters["maximum_iterations"] = MAX_KSP_IT
 spline.linearSolver.ksp().setGMRESRestart(MAX_KSP_IT)
 
 # Tolerance may need to be tighter to observe optimal convergence
-# for high kPrime and/or NEL.
+# for high kPrime and/or Nel.
 spline.relativeTolerance = NONLIN_TOL
 
 if(mpirank==0):
@@ -235,7 +235,7 @@ solnt.t = T
 grad_e_u = spline.grad(u) - grad_u_exact
 err_u_H1 = math.sqrt(assemble(inner(grad_e_u,grad_e_u)*spline.dx))
 if(mpirank==0):
-    print("log(h) = "+str(math.log(1.0/NEL)))
+    print("log(h) = "+str(math.log(1.0/Nel)))
     print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
 
 # Output ParaView files as a sanity check, if desired.
