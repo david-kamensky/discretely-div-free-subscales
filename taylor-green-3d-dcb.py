@@ -45,6 +45,8 @@ parser.add_argument('--QUAD_REDUCE',dest='QUAD_REDUCE',default=0,
                     help='Degree by which to reduce quadrature accuracy.')
 parser.add_argument('--VIZ',dest='VIZ',action='store_true',
                     help='Include option to output visualization files.')
+parser.add_argument('--GALERKIN',dest='GALERKIN',action='store_true',
+                    help='Include option to output visualization files.')
 parser.add_argument('--MAX_KSP_IT',dest='MAX_KSP_IT',default=1000,
                     help='Maximum number of Krylov iterations.')
 parser.add_argument('--LINEAR_TOL',dest='LINEAR_TOL',default=1e-3,
@@ -64,6 +66,7 @@ kPrime = int(args.kPrime)
 Re = Constant(float(args.Re))
 TIME_INTERVAL = float(args.T)
 VIZ = bool(args.VIZ)
+GALERKIN = bool(args.GALERKIN)
 MAX_KSP_IT = int(args.MAX_KSP_IT)
 LINEAR_TOL = float(args.LINEAR_TOL)
 NONLIN_TOL = float(args.NONLIN_TOL)
@@ -229,7 +232,9 @@ def resModel(v,q,uPrime):
     return resSUPG(v,q,uPrime) + resVMS(v,q,uPrime)
 
 # Residual of the full formulation and consistent linearization:
-res = resGalerkin + resModel(v,q,uPrime)
+res = resGalerkin
+if(not GALERKIN):
+    res += resModel(v,q,uPrime)
 Dres = derivative(res, up_hat)
 
 # Divergence of the velocity field, given a function in the mixed space.
@@ -288,8 +293,11 @@ for i in range(0,N_STEPS):
     # straightforwardly plotted as a function of time using gnuplot.
     dissipationScale = (1.0/pi**3)
     resolvedDissipationRate = assemble(dissipationScale*resVisc(u))
-    modelDissipationRate = assemble(dissipationScale
-                                    *resModel(u,Constant(0.0)*p,uPrime))
+    if(GALERKIN):
+        modelDissipationRate = 0.0
+    else:
+        modelDissipationRate = assemble(dissipationScale
+                                        *resModel(u,Constant(0.0)*p,uPrime))
     dissipationRate = resolvedDissipationRate + modelDissipationRate
 
     # Because the algebraic problem is solved only approximately, there is a
