@@ -235,6 +235,8 @@ def resModel(v,q,uPrime):
 res = resGalerkin
 if(not GALERKIN):
     res += resModel(v,q,uPrime)
+else:
+    res += inner(p,q)*spline.dx # (Pin down redundant field.)
 Dres = derivative(res, up_hat)
 
 # Divergence of the velocity field, given a function in the mixed space.
