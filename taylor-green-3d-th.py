@@ -285,7 +285,7 @@ for step in range(0,N_STEPS):
     modelDissipationRate = dissipationScale*assemble(resModel(uh_mid)
                                                 + k(uh_mid,uh_mid))
     resolvedDissipationRate = dissipationScale*assemble(k(uh_mid,uh_mid))
-    dissipationRate = resolvedDissipationRate - modelDissipationRate    
+    dissipationRate = resolvedDissipationRate + modelDissipationRate    
 
     # Check the discrete continuity residual:
     discreteDivErr = norm(assemble(b(uh_mid,q)))
