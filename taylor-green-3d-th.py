@@ -282,8 +282,7 @@ for step in range(0,N_STEPS):
 
     # Evaluate and output the dissipation rate:
     dissipationScale = (1.0/pi**3)
-    modelDissipationRate = dissipationScale*assemble(resModel(uh_mid)
-                                                + k(uh_mid,uh_mid))
+    modelDissipationRate = dissipationScale*assemble(resModel(uh_mid))
     resolvedDissipationRate = dissipationScale*assemble(k(uh_mid,uh_mid))
     dissipationRate = resolvedDissipationRate + modelDissipationRate    
 
