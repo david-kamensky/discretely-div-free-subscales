@@ -53,6 +53,9 @@ parser.add_argument('--LINEAR_TOL',dest='LINEAR_TOL',default=1.0e-2,
 parser.add_argument('--QS_SUBSCALES',
                     dest='QS_SUBSCALES',action='store_true',
                     help='Include option to use quasi-static subscales.')
+parser.add_argument('--GALERKIN',
+                    dest='GALERKIN',action='store_true',
+                    help="Include option to use Galerkin's method.")
 parser.add_argument('--VIZ',dest='VIZ',action='store_true',
                     help='Include option to output visualization files.')
 
@@ -68,6 +71,9 @@ NONLIN_TOL = float(args.NONLIN_TOL)
 LINEAR_TOL = float(args.LINEAR_TOL)
 VIZ = bool(args.VIZ)
 DYN_SUBSCALES = (not bool(args.QS_SUBSCALES))
+GALERKIN = bool(args.GALERKIN)
+if(GALERKIN):
+    DYN_SUBSCALES = False
 
 ##########################
 
@@ -189,12 +195,16 @@ def resModel(v):
 # Coarse-scale subproblem:
 res_coarse = inner(uh_t,v)*dx \
              + c_skew(uh_mid,uh_mid,v) + k(uh_mid,v) \
-             - b(v,ph) + b(uh_mid,q) \
-             + resModel(v)
+             - b(v,ph) + b(uh_mid,q)
+if(not GALERKIN):
+    res_coarse += resModel(v)
 
 # Remaining fine-scale subproblem, after statically condensing-out
 # the $v'$ equations:
 res_fine = -inner(grad(qPrime),uPrime_mid)*dx
+if(GALERKIN):
+    # Essentially set fine scale pressure to zero.
+    res_fine = inner(pPrime,qPrime)*dx
 
 # Pressure penalty term for iterated solver:
 res_penalty = (1.0/(penalty*tau_C))*ph_penalty*q*dx
@@ -282,7 +292,10 @@ for step in range(0,N_STEPS):
 
     # Evaluate and output the dissipation rate:
     dissipationScale = (1.0/pi**3)
-    modelDissipationRate = dissipationScale*assemble(resModel(uh_mid))
+    if(GALERKIN):
+        modelDissipationRate = 0.0
+    else:
+        modelDissipationRate = dissipationScale*assemble(resModel(uh_mid))
     resolvedDissipationRate = dissipationScale*assemble(k(uh_mid,uh_mid))
     dissipationRate = resolvedDissipationRate + modelDissipationRate    
 
