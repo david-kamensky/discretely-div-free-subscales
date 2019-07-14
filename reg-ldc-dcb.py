@@ -27,13 +27,9 @@ parser.add_argument('--Re',dest='Re',default=100.0,
                     help='Reynolds number.')
 parser.add_argument('--VIZ',dest='VIZ',action='store_true',
                     help='Include option to output visualization files.')
-parser.add_argument('--MAX_KSP_IT',dest='MAX_KSP_IT',default=500,
-                    help='Maximum number of Krylov iterations.')
-parser.add_argument('--LINEAR_TOL',dest='LINEAR_TOL',default=1e-2,
-                    help='Relative tolerance for Krylov solves.')
-parser.add_argument('--NONLIN_TOL',dest='NONLIN_TOL',default=1e-4,
+parser.add_argument('--NONLIN_TOL',dest='NONLIN_TOL',default=1e-5,
                     help='Relative tolerance for nonlinear solves.')
-parser.add_argument('--penalty',dest='penalty',default=1e4,
+parser.add_argument('--penalty',dest='penalty',default=1e3,
                     help='Dimensionless penalty for iterated penalty solver.')
 
 args = parser.parse_args()
@@ -41,8 +37,6 @@ Nel = int(args.Nel)
 kPrime = int(args.kPrime)
 Re = Constant(float(args.Re))
 VIZ = bool(args.VIZ)
-MAX_KSP_IT = int(args.MAX_KSP_IT)
-LINEAR_TOL = float(args.LINEAR_TOL)
 NONLIN_TOL = float(args.NONLIN_TOL)
 penalty = float(args.penalty)
 
@@ -90,11 +84,11 @@ spline = ExtractedSpline(splineGenerator,QUAD_DEG)
 
 # Define the exact solution:
 x = spline.spatialCoordinates()
-u0_str = 8.0*(pow(x[0],4) - 2.0*pow(x[0],3) + pow(x[0],2))\
-         *(4.0*pow(x[1],3) - 2.0*x[1])
-u1_str = -8.0*(4.0*pow(x[0],3) - 6.0*pow(x[0],2) + 2.0*x[0])\
-         *(pow(x[1],4) - pow(x[1],2))
-u_exact = as_vector((u0_str,u1_str))
+u0_exact = 8.0*(pow(x[0],4) - 2.0*pow(x[0],3) + pow(x[0],2))\
+           *(4.0*pow(x[1],3) - 2.0*x[1])
+u1_exact = -8.0*(4.0*pow(x[0],3) - 6.0*pow(x[0],2) + 2.0*x[0])\
+           *(pow(x[1],4) - pow(x[1],2))
+u_exact = as_vector((u0_exact,u1_exact))
 p_exact = sin(pi*x[0])*sin(pi*x[1])
 
 # Manufacture a source term, using the strong form of the PDE system:
@@ -114,7 +108,7 @@ if(mpirank==0):
     print("Starting analysis...")
 
 # "Un-pack" a velocity--pressure pair from spline.V, which is just a mixed
-# space with four scalar fields.
+# space with $d+1$ scalar fields.
 def unpack(up):
     d = spline.mesh.geometry().dim()
     u_hat = as_vector([up[i] for i in range(0,d)])
@@ -183,17 +177,8 @@ tau_C = 1.0/(tau_M*tr(G))
 divOp = lambda up : sqrt(tau_C)*spline.div(cartesianPushforwardRT
                                            (unpack(up)[0],spline.F))
 
-# Use iterative solver.  
-spline.linearSolver = PETScKrylovSolver("gmres","jacobi")
-spline.linearSolver.parameters["relative_tolerance"] = LINEAR_TOL
-# Linear solver sometimes fails to converge, but convergence of nonlinear
-# iteration is still enforced to within spline.relativeTolerance.
-spline.linearSolver.parameters["error_on_nonconvergence"] = False
-spline.linearSolver.parameters["maximum_iterations"] = MAX_KSP_IT
-spline.linearSolver.ksp().setGMRESRestart(MAX_KSP_IT)
-
-# Tolerance may need to be even tighter to observe optimal convergence
-# for kPrime > 2 and/or Nel > 64.  
+# Higher-than-default tolerance may need to be even tighter to observe
+# optimal convergence for kPrime > 2 and/or Nel > 64.  
 spline.relativeTolerance = NONLIN_TOL
 
 if(mpirank==0):
@@ -205,6 +190,7 @@ if(mpirank==0):
 # be some nontrivial residual.)
 up_hat.assign(divFreeProject(u_exact,spline,
                              getVelocity=lambda up : unpack(up)[0],
+                             getOtherFields=lambda up : unpack(up)[1],
                              applyBCs=False))
 
 if(mpirank==0):
@@ -217,12 +203,17 @@ iteratedDivFreeSolve(res,up_hat,vq_hat,spline,
                      J=Dres,reuseLHS=False)
 
 # Compute and print error:
-e_u = u - u_exact
-err_u_H1 = math.sqrt(assemble(inner(spline.grad(e_u),
-                                    spline.grad(e_u))*spline.dx))
+def H1err(u,u_exact,w=Constant(1.0)):
+    e_u = u - u_exact
+    return math.sqrt(assemble(w*inner(spline.grad(e_u),
+                                      spline.grad(e_u))*spline.dx))
+err_u_H1 = H1err(u,u_exact)
+err_p_H1 = H1err(p,p_exact,w=tau_M)
+
 if(mpirank==0):
     print("log(h) = "+str(math.log(1.0/Nel)))
     print("log(H^1 velocity error) = " + str(math.log(err_u_H1)))
+    print("log(tau-weighted H^1 pressure error) = " + str(math.log(err_p_H1)))
 
 if(VIZ):
     # Take advantage of explicit B-spline geometry to simplify visualization:
