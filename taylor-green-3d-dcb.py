@@ -23,6 +23,8 @@ parameters["form_compiler"]["representation"] = "tsfc"
 import sys
 sys.setrecursionlimit(10000)
 
+from os import path
+
 ####### Parameters #######
 
 # Arguments are parsed from the command line, with some hard-coded defaults
@@ -57,8 +59,10 @@ parser.add_argument('--penalty',dest='penalty',default=1e4,
                     help='Dimensionless penalty for iterated penalty solver.')
 parser.add_argument('--RHO_INF',dest='RHO_INF',default=0.5,
                     help='Spectral radius of generalized-alpha integrator.')
-parser.add_argument('--OUT_SKIP',dest='OUT_SKIP',default=10,
+parser.add_argument('--OUT_SKIP',dest='OUT_SKIP',default=1,
                     help='Number of steps to skip between writing files.')
+parser.add_argument('--SCRATCH',dest='SCRATCH',default=".",
+                    help='Directory in which to put large output files.')
 
 args = parser.parse_args()
 Nel = int(args.Nel)
@@ -75,6 +79,19 @@ N_STEPS_over_Nel = int(args.N_STEPS_over_Nel)
 RHO_INF = float(args.RHO_INF)
 OUT_SKIP = int(args.OUT_SKIP)
 QUAD_REDUCE = int(args.QUAD_REDUCE)
+SCRATCH = str(args.SCRATCH)
+
+# Check if restarting:
+if(path.exists("t.dat")):
+    tfile = open('t.dat','r')
+    fs = tfile.read()
+    tfile.close()
+    tokens = fs.split()
+    startStep = int(tokens[0])
+    startTime = float(tokens[1])
+else:
+    startStep = 0
+    startTime = 0.0
 
 ####### Preprocessing #######
 
@@ -162,7 +179,8 @@ updot_old_hat = Function(spline.V)
 
 # Create a generalized-alpha time integrator.
 timeInt = GeneralizedAlphaIntegrator(RHO_INF,DELTA_T,up_hat,
-                                     (up_old_hat, updot_old_hat))
+                                     (up_old_hat, updot_old_hat),
+                                     t=startTime)
 
 # The alpha-level parametric velocity and its partial derivative w.r.t. time:
 up_hat_alpha = timeInt.x_alpha()
@@ -251,37 +269,68 @@ w = Function(spline.V)
 
 # Projection of initial condition; need to specify how to get the (parametric)
 # velocity vector field from a function in the mixed space.
-if(mpirank==0):
-    print("Projecting velocity IC...")
-up_old_hat.assign(divFreeProject(soln,spline,
-                                 getVelocity=lambda up : unpack(up)[0]))
+if(startStep==0):
+    if(mpirank==0):
+        print("Projecting velocity IC...")
+    up_old_hat.assign(divFreeProject(soln,spline,
+                                     getVelocity=lambda up : unpack(up)[0]))
+else:
+    # If restarting, load the initial condition from the appropriate restart
+    # file.
+    if(mpirank==0):
+        print("Loading initial condition from step "+str(startStep)+" ...")
+    f = HDF5File(worldcomm, 
+                 SCRATCH+"/restarts/restart."+str(startStep)+".h5", 'r')
+    f.read(up_old_hat,'/up_old_hat')
+    f.read(updot_old_hat,'/updot_old_hat')
+    # (While not mathematically-necessary as tolerances go to zero, storing
+    # the initial guess for the pressure in the iterated penalty solver
+    # helps with reproducibility when restarting at finite solver tolerances.)
+    f.read(w,'/w')
+    f.close()
+    
+# Predictor:
 up_hat.assign(up_old_hat)
-
+    
 # Files for optional ParaView output:
 if(VIZ):
-    uFile = File("results/ux.pvd")
-    vFile = File("results/uy.pvd")
-    wFile = File("results/uz.pvd")
-
+    uFile = File(SCRATCH+"/results/ux.pvd")
+    vFile = File(SCRATCH+"/results/uy.pvd")
+    wFile = File(SCRATCH+"/results/uz.pvd")
+    
 # Time stepping loop:
-for i in range(0,N_STEPS):
+for i in range(startStep,N_STEPS):
 
     if(mpirank == 0):
         print("\n------- Time step "+str(i+1)+"/"+str(N_STEPS)
               +" , t = "+str(timeInt.t)+" -------\n")
         sys.stdout.flush()
 
-    # Output ParaView files if desired.
-    if(VIZ and (i%OUT_SKIP==0)):
-        # Take advantage of explicit B-spline geometry to simplify
-        # visualization.
-        ux, uy, uz, _ = up_hat_old.split()
-        ux.rename("u","u")
-        uy.rename("v","v")
-        uz.rename("w","w")
-        uFile << ux
-        vFile << ux
-        wFile << uz
+    # Output checkpoint data and, optionally, vizualization files.
+    if(i%OUT_SKIP==0):
+        if(i != startStep):
+            # Current solution will be old solution in restarted computation.
+            f = HDF5File(worldcomm,
+                         SCRATCH+"/restarts/restart."+str(i)+".h5", 'w')
+            f.write(up_old_hat,'/up_old_hat')
+            f.write(updot_old_hat,'/updot_old_hat')
+            f.write(w,'/w')
+            f.close()
+            if(mpirank==0):
+                tfile = open('t.dat','w')
+                tfile.write(str(i)+" "
+                            +str(timeInt.t - float(timeInt.DELTA_T)))
+                tfile.close()        
+        if(VIZ):
+            # Take advantage of explicit B-spline geometry to simplify
+            # visualization.
+            ux, uy, uz, _ = up_hat_old.split()
+            ux.rename("u","u")
+            uy.rename("v","v")
+            uz.rename("w","w")
+            uFile << ux
+            vFile << ux
+            wFile << uz
         
     # Solve for velocity in a solenoidal subspace of the RT-type
     # B-spline space, where divergence acts on the velocity unknowns in the
