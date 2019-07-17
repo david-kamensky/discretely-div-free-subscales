@@ -309,7 +309,6 @@ for i in range(startStep,N_STEPS):
     # Output checkpoint data and, optionally, vizualization files.
     if(i%OUT_SKIP==0):
         if(i != startStep):
-            # Current solution will be old solution in restarted computation.
             f = HDF5File(worldcomm,
                          SCRATCH+"/restarts/restart."+str(i)+".h5", 'w')
             f.write(up_old_hat,'/up_old_hat')
