@@ -1,10 +1,18 @@
 # Variational multiscale modeling with weakly divergence-free subscales
-This repository contains FEniCS and tIGAr-based scripts to accompany the paper
+This repository contains FEniCS and tIGAr-based scripts to accompany the papers
 ```
-@article{Evans2019,
-title = "Variational multiscale modeling with weakly divergence-free subscales",
-journal = "Mathematical Models and Methods in Applied Sciences",
+@article{Evans2019a,
+title = "Variational multiscale modeling with discretely divergence-free subscales",
+journal = "Computers and Mathematics with Applications",
 author = "J. A. Evans and D. Kamensky and Y. Bazilevs",
+year = "2019",
+note = "In preparation."
+}
+
+@article{Evans2019b,
+title = "Analysis of the method of weakly divergence-free subscales for non-divergence conforming discretizations",
+journal = "Mathematical Models and Methods in Applied Sciences",
+author = "J. A. Evans and D. Kamensky",
 year = "2019",
 note = "In preparation."
 }
