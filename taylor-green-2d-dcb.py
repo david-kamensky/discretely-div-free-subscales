@@ -78,12 +78,15 @@ fieldList = generateFieldsCompat(controlMesh,"RT",degs)
 fieldList += [BSpline(degs,kvecs),]
 splineGenerator = FieldListSpline(controlMesh,fieldList)
 
-# Apply strong BCs to normal velocity component:
+# Apply strong BCs to normal velocity component and pin down one pressure DoF:
 for field in range(0,2):
     scalarSpline = splineGenerator.getFieldSpline(field)
     for side in range(0,2):
         sideDofs = scalarSpline.getSideDofs(field,side)
         splineGenerator.addZeroDofs(field,sideDofs)
+field = 2 # (pressure)
+splineGenerator.addZeroDofs(field,[0,])
+
 
 ####### Analysis #######
 
@@ -97,6 +100,13 @@ spline = ExtractedSpline(splineGenerator,QUAD_DEG)
 # Initial condition for the Taylor--Green vortex
 x = spline.spatialCoordinates()
 u_IC = as_vector((sin(x[0])*cos(x[1]),-cos(x[0])*sin(x[1])))
+
+# The pressure is made zero at corners by the non-standard `- 2.0`; the
+# purpose of this is for easy comparison with discrete solutions which
+# are constrained to be zero at a corner for uniqueness.
+# (This relies on knowing that the 0-th DoF for the pressure will be at a
+# corner, which is true, but not strictly specified by the tIGAr API.)
+p_IC = 0.25*(cos(2.0*x[0]) + cos(2.0*x[1]) - 2.0)
 
 # Time dependence of exact solution:
 solnt = Expression("exp(-2.0*nu*t)",nu=1.0/float(Re),t=0.0,degree=1)
@@ -229,14 +239,18 @@ for step in range(0,N_STEPS):
         
     up_hat_old.assign(up_hat)
 
-# Check error in $H^1$:
+# Check velocity error in $H^1$ and pressure error in $L^2$:
 grad_u_exact = solnt*spline.grad(u_IC)
+p_exact = (solnt**2)*p_IC
 solnt.t = T
 grad_e_u = spline.grad(u) - grad_u_exact
+e_p = p - p_exact
 err_u_H1 = math.sqrt(assemble(inner(grad_e_u,grad_e_u)*spline.dx))
+err_p_L2 = math.sqrt(assemble(inner(e_p,e_p)*spline.dx))
 if(mpirank==0):
     print("log(h) = "+str(math.log(1.0/Nel)))
     print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
+    print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
 
 # Output ParaView files as a sanity check, if desired.
 if(VIZ):
