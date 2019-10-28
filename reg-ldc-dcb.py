@@ -72,6 +72,9 @@ for field in range(0,2):
         for direction in range(0,2):
             sideDofs = scalarSpline.getSideDofs(direction,side)
             splineGenerator.addZeroDofs(field,sideDofs)
+# Pin down one pressure DoF, assumed to be in a corner:
+field = 2
+splineGenerator.addZeroDofs(field,[0,])
 
 ####### Analysis #######
 
@@ -209,12 +212,14 @@ def H1err(u,u_exact,w=Constant(1.0)):
                                       spline.grad(e_u))*spline.dx))
 err_u_H1 = H1err(u,u_exact)
 err_p_H1 = H1err(p,p_exact,w=tau_M)
+err_p_L2 = math.sqrt(assemble(inner(p-p_exact,p-p_exact)*spline.dx))
 
 if(mpirank==0):
     print("log(h) = "+str(math.log(1.0/Nel)))
     print("log(H^1 velocity error) = " + str(math.log(err_u_H1)))
     print("log(tau-weighted H^1 pressure error) = " + str(math.log(err_p_H1)))
-
+    print("log(L^2 pressure error) = " + str(math.log(err_p_L2)))
+    
 if(VIZ):
     # Take advantage of explicit B-spline geometry to simplify visualization:
     ux, uy, p = up_hat.split()
