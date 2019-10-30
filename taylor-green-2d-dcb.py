@@ -1,5 +1,6 @@
 """
-2D Taylor--Green vortex, using div-conforming B-splines.  Subscales are quasi-static.
+2D Taylor--Green vortex, using div-conforming B-splines.  Subscales can be
+dynamic (default) or quasi-static (by passing a command line parameter).
 """
 
 from tIGAr import *
@@ -31,6 +32,9 @@ parser.add_argument('--Re',dest='Re',default=100.0,
                     help='Reynolds number.')
 parser.add_argument('--T',dest='T',default=1.0,
                     help='Length of time interval to consider.')
+parser.add_argument('--QS_SUBSCALES',
+                    dest='QS_SUBSCALES',action='store_true',
+                    help='Include option to use quasi-static subscales.')
 parser.add_argument('--VIZ',dest='VIZ',action='store_true',
                     help='Include option to output visualization files.')
 parser.add_argument('--MAX_KSP_IT',dest='MAX_KSP_IT',default=500,
@@ -47,6 +51,7 @@ Nel = int(args.Nel)
 kPrime = int(args.kPrime)
 Re = Constant(float(args.Re))
 T = float(args.T)
+DYN_SUBSCALES = (not bool(args.QS_SUBSCALES))
 VIZ = bool(args.VIZ)
 MAX_KSP_IT = int(args.MAX_KSP_IT)
 LINEAR_TOL = float(args.LINEAR_TOL)
@@ -69,8 +74,12 @@ kvecs = [uniformKnots(degs[0],-math.pi,math.pi,Nel,False),
          uniformKnots(degs[1],-math.pi,math.pi,Nel,False)]
 
 # Define a trivial mapping from parametric to physical space, via explicit
-# B-spline.
-controlMesh = ExplicitBSplineControlMesh(degs,kvecs)
+# B-spline.  Extraction is done to triangular elements, to permit the use
+# of Quadrature-type elements for the dynamic subgrid scales.  (Triangular
+# elements are used for quasi-static scales as well, for controlled comparison,
+# since the element-Jacobian-based definition of stabilization parameters
+# will be slightly different between triangle and quad elements.)
+controlMesh = ExplicitBSplineControlMesh(degs,kvecs,useRect=False)
 
 # Define the spaces for RT-type compatible splines on this geometry.
 fieldList = generateFieldsCompat(controlMesh,"RT",degs)
@@ -96,6 +105,12 @@ if(mpirank==0):
 # Overkill quadrature to ensure optimal convergence:
 QUAD_DEG = 2*(max(degs)+1)
 spline = ExtractedSpline(splineGenerator,QUAD_DEG)
+
+# Separate FunctionSpace for the previous time step's fine-scale velocity
+# when dynamic subgrid scales are used.  
+uPrime_el = VectorElement("Quadrature",spline.mesh.ufl_cell(),QUAD_DEG,
+                          quad_scheme="default")
+VPrime = FunctionSpace(spline.mesh,uPrime_el)
 
 # Initial condition for the Taylor--Green vortex
 x = spline.spatialCoordinates()
@@ -146,6 +161,9 @@ u_hat, p_hat = unpack(up_hat)
 up_hat_old = Function(spline.V)
 u_hat_old, p_hat_old = unpack(up_hat_old)
 
+# Fine scale velocity from previous time step, for dynamic subgrid scales:
+uPrime_old = Function(VPrime)
+
 # The physical velocity and its temporal partial derivative:
 u = cartesianPushforwardRT(u_hat,spline.F)
 u_old = cartesianPushforwardRT(u_hat_old,spline.F)
@@ -188,10 +206,25 @@ G = inv(Ginv)
 C_I = Constant(3.0*max(degs)**2)
 tau_M = 1.0/sqrt(dot(u_mid,G*u_mid) + (2.0/Dt)**2
                  + (C_I**2)*(nu**2)*inner(G,G))
-uPrime = -tau_M*resStrong
-resStab = inner(uPrime,-Ladv(u_mid,v,q))*spline.dx \
-          + inner(v,spline.grad(u_mid)*uPrime)*spline.dx \
-          - inner(spline.grad(v),outer(uPrime,uPrime))*spline.dx
+
+# Obtaining the fine-scale velocity:
+if(DYN_SUBSCALES):
+    # Static condensation of fine-scale velocity at current time level, i.e.,
+    # symbolically inverting the (block-diagonal) $v'$ set of equations:
+    I = Identity(spline.mesh.geometry().dim())
+    uPrimeLHS = (1.0/Dt + 0.5/tau_M)*I + 0.5*spline.grad(u_mid)
+    uPrimeRHS = -resStrong + (1.0/Dt)*uPrime_old \
+                - (0.5/tau_M)*uPrime_old - 0.5*spline.grad(u_mid)*uPrime_old
+    uPrime = inv(uPrimeLHS)*uPrimeRHS
+    
+    # Midpoint fine-scale velocity:
+    uPrime_mid = 0.5*(uPrime + uPrime_old)
+else:
+    uPrime_mid = -tau_M*resStrong
+
+resStab = inner(uPrime_mid,-Ladv(u_mid,v,q))*spline.dx \
+          + inner(v,spline.grad(u_mid)*uPrime_mid)*spline.dx \
+          - inner(spline.grad(v),outer(uPrime_mid,uPrime_mid))*spline.dx
 
 # Define nonlinear residual and Jacobian:
 res = resGalerkin + resStab
@@ -236,7 +269,16 @@ for step in range(0,N_STEPS):
                          divOp=divOp,
                          penalty=Constant(penalty),
                          J=Dres,reuseLHS=True)
-        
+
+    # Update old fine-scale velocity if necessary:
+    if(DYN_SUBSCALES):
+        # FEniCS's built-in $L^2$ projection will integrate in the
+        # parametric domain, but it doesn't matter, since the update
+        # is pointwise.
+        uPrime_old.assign(project(uPrime,VPrime,form_compiler_parameters
+                                  ={"quadrature_degree":QUAD_DEG}))
+
+    # Update old coarse-scale variables:
     up_hat_old.assign(up_hat)
 
 # Check velocity error in $H^1$ and pressure error in $L^2$:
