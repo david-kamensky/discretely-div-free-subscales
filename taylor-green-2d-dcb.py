@@ -203,9 +203,11 @@ dx_dxi = spline.parametricGrad(spline.F)
 dx_dxiHat = dx_dxi*dxi_dxiHat
 Ginv = dx_dxiHat.T*dx_dxiHat
 G = inv(Ginv)
-C_I = Constant(3.0*max(degs)**2)
-tau_M = 1.0/sqrt(dot(u_mid,G*u_mid) + (2.0/Dt)**2
-                 + (C_I**2)*(nu**2)*inner(G,G))
+C_I = Constant(36.0*max(degs)**2)
+tau_M_denom2 = dot(u_mid,G*u_mid) + (C_I**2)*(nu**2)*inner(G,G)
+if(not DYN_SUBSCALES):
+    tau_M_denom2 += (2.0/Dt)**2
+tau_M = 1.0/sqrt(tau_M_denom2)
 
 # Obtaining the fine-scale velocity:
 if(DYN_SUBSCALES):
