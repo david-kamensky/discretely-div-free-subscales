@@ -6,7 +6,7 @@ title = "Variational multiscale modeling with discretely divergence-free subscal
 journal = "Computers and Mathematics with Applications",
 author = "J. A. Evans and D. Kamensky and Y. Bazilevs",
 year = "2019",
-note = "In preparation."
+note = "Under review."
 }
 
 @article{Evans2019b,
