@@ -136,6 +136,7 @@ tau_C = 1.0/(tau_M*tr(G))
 # Residual of the strong problem
 r_M = uh_t + Ladv(uh_mid,uh_mid) - div(sigmaVisc(uh_mid)) + grad(ph)
 
+# Choose which branch of coarse-scale residual to use, based on whether we are using dynamic or quasi-static subscales.
 if(DYN_SUBSCALES):
     # Static condensation of fine-scale velocity at current time level, i.e.,
     # symbolically inverting the (block-diagonal) $v'$ set of equations:
@@ -147,12 +148,23 @@ if(DYN_SUBSCALES):
     
     # Midpoint fine-scale velocity:
     uPrime_mid = 0.5*(uPrime + uPrime_old)
-else:
-    uPrime_mid = -tau_M*(grad(pPrime) + r_M)
-    
 
-# Coarse-scale subproblem:
-res_coarse = inner(uh_t,v)*dx \
+    # Define time derivative of uPrime:
+    uPrime_t = (uPrime - uPrime_old)/Dt
+
+    # Coarse-scale subproblem for dynamic subscales:
+    res_coarse = inner(uh_t,v)*dx \
+             + c_skew(uh_mid,uh_mid,v) + k(uh_mid,v) - b(v,ph) + b(uh_mid,q) \
+             + c_cons(uh_mid,uPrime_mid,v) + c_skew(uPrime_mid,uh_mid,v) \
+             + c_cons(uPrime_mid,uPrime_mid,v) + dot(uPrime_t,v)*dx \
+             + tau_C*div(uh_mid)*div(v)*dx
+else:
+    # Quasi-static subscale definition of $u'$ found in Eq. (44):
+    uPrime_mid = -tau_M*(grad(pPrime) + r_M)
+
+    # Coarse-scale subproblem for quasi-static subscales:
+    # $u'$ in this branch does not depend on time, so the "dot(uPrime_t,v)*dx" term is removed.
+    res_coarse = inner(uh_t,v)*dx \
              + c_skew(uh_mid,uh_mid,v) + k(uh_mid,v) - b(v,ph) + b(uh_mid,q) \
              + c_cons(uh_mid,uPrime_mid,v) + c_skew(uPrime_mid,uh_mid,v) \
              + c_cons(uPrime_mid,uPrime_mid,v) \
