@@ -182,11 +182,11 @@ Dres = derivative(res,w)
 
 # BCs: Use Dirichlet for normal components of the coarse-scale velocity,
 # and pin down pressures in one corner to remove hydrostatic modes.
-corner_str = "near(x[0],0.0) && near(x[1],0.0)"
+corner_str = "near(x[0],-pi,1e-10) && near(x[1],-pi,1e-10)"
 bcs = [DirichletBC(X.sub(0).sub(0),Constant(0.0),
-                   "near(x[0],-pi) || near(x[0],pi)"),
+                   "near(x[0],-pi,1e-10) || near(x[0],pi,1e-10)"),
        DirichletBC(X.sub(0).sub(1),Constant(0.0),
-                   "near(x[1],-pi) || near(x[1],pi)"),
+                   "near(x[1],-pi,1e-10) || near(x[1],pi,1e-10)"),
        DirichletBC(X.sub(1),Constant(0.0),corner_str,"pointwise"),
        DirichletBC(X.sub(2),Constant(0.0),corner_str,"pointwise")]
 
