@@ -237,7 +237,7 @@ if Dynamic_Subscales.lower() == 'yes':
     I = Identity(spline.mesh.geometry().dim())
     #From taylor-green-2d-th.py
     LHS = (1.0/Dt + 0.5/tau_M)*I + 0.5*spline.grad(uh_mid)
-    RHS = -r_M - spline.grad(pP) + (1.0/Dt)*uP_old - (0.5/tau_M)*uP_old - 0.5*grad(uh_mid)*uP_old
+    RHS = -r_M - spline.grad(pP) + (1.0/Dt)*uP_old - (0.5/tau_M)*uP_old - 0.5*spline.grad(uh_mid)*uP_old
     uP = inv(LHS)*RHS
 
     #Get midpoint u' velocity:
