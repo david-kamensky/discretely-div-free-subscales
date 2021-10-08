@@ -5,6 +5,9 @@ function [] = VMSDDVS_Convergence_Plot()
 % This function reads the data from the .csv files makes a log-log plot
 %of the H1-Error against the grid-size h.
 
+%Make sure that the required .csv files are located in the same directory
+%as this function.
+
 clear all;          %Clear all variables from workspace.
 clc;                %Clear command window.
 warning('off');     %Disable warnings related to readtable.
