@@ -52,8 +52,8 @@ loglog(x_OPT,y_OPT,'LineStyle','--','Color','blue');
 axis([7.2e-3 1.1e-1 9e-4 5e-1])
 set(gca,'FontSize',14,'FontName','Times New Roman') 
 title('$H^1$ Error of Velocity Field (Isogeometric)','FontSize',14,'Interpreter','Latex');
-xlabel('h','FontSize',14,'Interpreter','Latex');
-ylabel('${\left\vert\kern-0.2ex\left\vert \textbf{u} - \textbf{u}^h \right\vert\kern-0.2ex\right\vert}_{H^1 \left(\Omega\right)}$','FontSize',16,'Interpreter','Latex');
+xlabel('$h$','FontSize',14,'Interpreter','Latex');
+ylabel('${\left\vert \textbf{u} - \textbf{u}^h \right\vert}_{{\left(H^1 \left(\Omega\right) \right)}^2}$','FontSize',16,'Interpreter','Latex');
 set(gca,'FontSize',14,'FontName','Times New Roman')
 le = legend({'Dynamic','Quasi-Static','Optimal'},'Location','northwest');
 set(le,'FontSize',14,'Interpreter','Latex');
@@ -82,8 +82,8 @@ loglog(x_OPT,y_OPT,'LineStyle','--','Color','blue');
 axis([4.5e-3 1.15e-1 4e-4 7.8e-1])
 set(gca,'FontSize',14,'FontName','Times New Roman') 
 title('$H^1$ Error of Velocity Field (Regular)','FontSize',14,'Interpreter','Latex');
-xlabel('h','FontSize',14,'Interpreter','Latex');
-ylabel('${\left\vert\kern-0.2ex\left\vert \textbf{u} - \textbf{u}^h \right\vert\kern-0.2ex\right\vert}_{H^1 \left(\Omega\right)}$','FontSize',16,'Interpreter','Latex');
+xlabel('$h$','FontSize',14,'Interpreter','Latex');
+ylabel('${\left\vert \textbf{u} - \textbf{u}^h \right\vert}_{{\left(H^1 \left(\Omega\right) \right)}^2}$','FontSize',16,'Interpreter','Latex');
 set(gca,'FontSize',14,'FontName','Times New Roman')
 le = legend({'Dynamic','Quasi-Static','Optimal'},'Location','northwest');
 set(le,'FontSize',14,'Interpreter','Latex');
@@ -112,8 +112,8 @@ loglog(x_OPT,y_OPT,'LineStyle','--','Color','blue');
 axis([4.5e-3 1.2e-1 5e-5 2e-1])
 set(gca,'FontSize',14,'FontName','Times New Roman') 
 title('$H^1$ Error of Velocity Field (LDC)','FontSize',14,'Interpreter','Latex');
-xlabel('h','FontSize',14,'Interpreter','Latex');
-ylabel('${\left\vert\kern-0.2ex\left\vert \textbf{u} - \textbf{u}^h \right\vert\kern-0.2ex\right\vert}_{H^1 \left(\Omega\right)}$','FontSize',16,'Interpreter','Latex');
+xlabel('$h$','FontSize',14,'Interpreter','Latex');
+ylabel('${\left\vert \textbf{u} - \textbf{u}^h \right\vert}_{{\left(H^1 \left(\Omega\right) \right)}^2}$','FontSize',16,'Interpreter','Latex');
 set(gca,'FontSize',14,'FontName','Times New Roman')
 le = legend({'IGA','Regular','Optimal'},'Location','northwest');
 set(le,'FontSize',14,'Interpreter','Latex');
