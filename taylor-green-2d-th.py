@@ -300,7 +300,7 @@ if(KE):
 # Output ParaView files as a sanity check, if desired.
 if(VIZ):
    uh,ph,pPrime = w.split()
-   #uh.rename("u","u")
+   uh.rename("u","u")
    File("results/u.pvd") << uh
-   #ph.rename("p","p")
+   ph.rename("p","p")
    File("results/p.pvd") << ph
