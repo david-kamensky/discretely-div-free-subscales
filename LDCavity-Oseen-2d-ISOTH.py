@@ -218,6 +218,7 @@ err_u_H1 = math.sqrt(assemble(inner(spline.grad(uh - u_IC_nopressure),spline.gra
 err_p_L2 = math.sqrt(assemble(inner(ph - p_IC,ph -p_IC)*spline.dx))
 
 if(mpirank==0):
+    print("======= Final Results =======")
     print("log(h) = "+str(math.log(1.0/Nel)))
     print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
     print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))

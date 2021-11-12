@@ -8,6 +8,8 @@ from ufl import Max, Min
 import sys
 import argparse
 
+mpirank = MPI.rank(MPI.comm_world)
+
 # Use TSFC representation, due to complicated forms:
 parameters["form_compiler"]["representation"] = "tsfc"
 sys.setrecursionlimit(10000)
@@ -24,7 +26,8 @@ Re = float(args.Re)
 
 ####### Preprocessing #######
 
-print("Generating the regular Taylor-Hood element...")
+if(mpirank==0):
+    print("Generating the regular Taylor-Hood element...")
 
 # The definition of the Taylor-Hood element.
 # Quadratic velocity.
@@ -52,7 +55,8 @@ vh,qh,qP = split(dw)
 
 ####### Exact Solution Data #######
 
-print("Generating exact solution and quadrature rules...")
+if(mpirank==0):
+    print("Generating exact solution and quadrature rules...")
 
 # Overkill quadrature to ensure optimal convergence:
 Quadrature_Degree = 2*((degs_velocity)+1)
@@ -122,7 +126,8 @@ def b(v,q):
 
 ####### Initialize velocity/pressure functions #######
 
-print("Starting analysis...")
+if(mpirank==0):
+    print("Starting analysis...")
 
 ####### Problem Formulation #######
 # Define stabilization parameters:
@@ -171,9 +176,11 @@ solve(residual_SUM==0,w,J=residual_SUM_jacobian,bcs=bcs)
 err_u_H1 = math.sqrt(assemble(inner(grad(uh - u_IC),grad(uh - u_IC))*dx))
 err_p_L2 = math.sqrt(assemble(inner(ph - p_IC,ph -p_IC)*dx))
 
-print("log(h) = "+str(math.log(1.0/Nel)))
-print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
-print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
+if(mpirank==0):
+    print("======= Final Results =======")
+    print("log(h) = "+str(math.log(1.0/Nel)))
+    print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
+    print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
 
 #Output the required files to be read and processed.
 output_file = open('copypasta-ldc-Oseen-regular.txt','w')

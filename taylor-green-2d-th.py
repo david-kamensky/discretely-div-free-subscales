@@ -6,6 +6,8 @@ quasi-static or dynamic.  (See command line parameters.)
 from dolfin import *
 import ufl
 import math
+import numpy as np
+import scipy.io as sio
 
 mpirank = MPI.rank(MPI.comm_world)
 
@@ -34,13 +36,33 @@ parser.add_argument('--QS_SUBSCALES',
                     help='Include option to use quasi-static subscales.')
 parser.add_argument('--VIZ',dest='VIZ',action='store_true',
                     help='Include option to output visualization files.')
+parser.add_argument('--KE',dest='KE',action='store_true',
+                    help='Include option to track Kinetic Energy.')
 
 args = parser.parse_args()
 Nel = int(args.Nel)
 Re = Constant(float(args.Re))
 T = float(args.T)
 VIZ = bool(args.VIZ)
+KE = bool(args.KE)
 DYN_SUBSCALES = (not bool(args.QS_SUBSCALES))
+
+
+# Print output to tell user if dynamic subscales are on or off.
+if(DYN_SUBSCALES):
+    print("Dynamic subscales are ON.")
+else:
+    print("Dynamic subscales are OFF. Formulation is now using quasi-static subscales.")
+
+# Print output to tell user if kinetic energy is being tracked.
+if(KE):
+    print("Kinetic energy will be computed and tracked over time.")
+    # Generate kinetic energy storage matrix that will be returned once the entire script has finished running:
+    KE_Storage = np.empty([Nel,1])
+else:
+    print("Kinetic energy will not be computed.")
+
+
 
 ##########################
 
@@ -95,6 +117,8 @@ v,q,qPrime = split(dw)
 x = SpatialCoordinate(mesh)
 u_IC = as_vector((sin(x[0])*cos(x[1]),-cos(x[0])*sin(x[1])))
 
+p_IC = 0.25*(cos(2.0*x[0]) + cos(2.0*x[1]) - 2.0)
+
 # Time dependence of exact solution:
 solnt = Expression("exp(-2.0*nu*t)",nu=1.0/float(Re),t=0.0,degree=1)
 
@@ -124,6 +148,11 @@ def c_cons(a,v1,v2):
     return -dot(v1,dot(grad(v2),a))*dx
 def c_skew(a,v1,v2):
     return 0.5*(c(a,v1,v2) + c_cons(a,v1,v2))
+
+# Equation (27) that appears in section 2.6:
+def KEnergy(v1,v2):
+    return 0.5*((math.sqrt(assemble(inner((v1 + v2),(v1 + v2))*dx)))**2)
+
 
 # Definition of stabilization parameters:
 C_I = Constant(60.0)
@@ -170,6 +199,7 @@ else:
              + c_cons(uPrime_mid,uPrime_mid,v) \
              + tau_C*div(uh_mid)*div(v)*dx
 
+
 # Remaining fine-scale subproblem, after statically condensing-out
 # the $v'$ equations:
 res_fine = -inner(grad(qPrime),uPrime_mid)*dx
@@ -215,22 +245,62 @@ for step in range(0,N_STEPS):
         uPrime_old.assign(project(uPrime,VPrime,form_compiler_parameters
                                   ={"quadrature_degree":QUAD_DEG}))
 
+    if(KE):
+        # Compute kinetic energy:
+        print("Current KE: "+str(KEnergy(uh_mid,uPrime_mid))+".")
+        KE_Storage[step,0] = float(KEnergy(uh_mid,uPrime_mid))
+
     # Move coarse scale unknowns to next time step:
     w_old.assign(w)
 
 # Check error in $H^1$:
 grad_u_exact = solnt*grad(u_IC)
+p_exact = (solnt**2)*p_IC
 solnt.t = T
 grad_e_u = grad(uh) - grad_u_exact
 err_u_H1 = math.sqrt(assemble(inner(grad_e_u,grad_e_u)*dx))
+err_p_L2 = math.sqrt(assemble(inner(ph-p_exact,ph-p_exact)*dx))
 if(mpirank==0):
+    print("======= Final Results =======")
     print("log(h) = "+str(math.log(1.0/Nel)))
     print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
+    print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
+
+#Output the required files to be read and processed.
+output_file = open('copypasta-tg.txt','w')
+output_file.write('Nel = '+str(Nel))
+output_file.write(', h = '+str(1.0/Nel))
+output_file.write(', H^1 velocity error = '+str(err_u_H1))
+output_file.write(', L^2 pressure error = '+str(err_p_L2))
+output_file.close()
+
+# Print output to tell user if kinetic energy is being tracked.
+if(KE):
+    #Verify that Kinetic Energy decreased over time:
+
+    #Define some "boolean" marker determining whether or not KE decreased. Default will be set to "Yes" as the theory expects.
+    bool_KE = "Yes"
+
+    #Simple for loop will check whether or not KE decreases over time. KE at time-step t+1 must be less than KE at time-step t.
+    for t in range(0,Nel-1):
+        bool_KE_Check = KE_Storage[t+1,0] - KE_Storage[t,0]
+        #If KE at time-step t+1 is larger than KE at time-step t, then set the boolean marker to "No".
+        if (bool_KE_Check > 0):
+            bool_KE = "NO"
+
+    #Print the answer to the question: "Did KE decrease or what"
+    #Yes/No answer printed directed to the command line so that you don't have to look through the output .mat file manually.
+    #If the answer output here is "No", then there is probably something wrong with the formulation.
+    print("Did Kinetic Energy decrease over time: "+str(bool_KE))
+
+    #Output a MATLAB matrix containing the tracked kinetic energy:
+    sio.savemat('Kinetic Energy Regular.mat', {'KE_Storage': KE_Storage})
+
 
 # Output ParaView files as a sanity check, if desired.
 if(VIZ):
    uh,ph,pPrime = w.split()
-   uh.rename("u","u")
+   #uh.rename("u","u")
    File("results/u.pvd") << uh
-   ph.rename("p","p")
+   #ph.rename("p","p")
    File("results/p.pvd") << ph
