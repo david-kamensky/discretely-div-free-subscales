@@ -117,9 +117,23 @@ solve(res==0,w,J=derivative(res,w),bcs=bcs)
 import math
 e_u = u - uh
 err_u_H1 = math.sqrt(assemble(inner(grad(e_u),grad(e_u))*dx))
+err_p_L2 = math.sqrt(assemble(inner(ph-p,ph-p)*dx))
 if(MPI.rank(MPI.comm_world)==0):
+    print("======= Final Results =======")
     print("log(h) = "+str(math.log(1.0/Nel)))
     print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
+    # Edit the code to print h and H1 velocity error instead of computing ln(...):
+    #print("h = "+str(1.0/Nel))
+    #print("H^1 velocity error = "+str(err_u_H1))
+    print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
+
+#Output the required files to be read and processed.
+output_file = open('copypasta-ldc.txt','w')
+output_file.write('Nel = '+str(Nel))
+output_file.write(', h = '+str(1.0/Nel))
+output_file.write(', H^1 velocity error = '+str(err_u_H1))
+output_file.write(', L^2 pressure error = '+str(err_p_L2))
+output_file.close()
 
 # Output ParaView files as a sanity check, if desired.
 if(VIZ):

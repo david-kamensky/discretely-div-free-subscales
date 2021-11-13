@@ -9,6 +9,8 @@ import math
 import ufl
 import sys
 import argparse
+import numpy as np
+import scipy.io as sio
 
 # Use TSFC representation, due to complicated forms:
 parameters["form_compiler"]["representation"] = "tsfc"
@@ -20,6 +22,7 @@ parser.add_argument('--Nel',dest='Nel',default=10,help='Number of elements in ea
 parser.add_argument('--Re',dest='Re',default=100.0,help='Reynolds number.')
 parser.add_argument('--T',dest='T',default=1.0,help='Length of time interval to consider.')
 parser.add_argument('--Dyn',dest='Dynamic_Subscales',default='Yes',help='"Yes" or "No" answer determining whether or not you want to use dynamic subscales.')
+parser.add_argument('--KE',dest='Kinetic_Energy',default='No',help='"Yes" or "No" answer determining whether or not you want to track the decay of kinetic energy over time.')
 
 # Initial Input Data
 args = parser.parse_args()
@@ -27,12 +30,21 @@ Nel = int(args.Nel)
 Re = float(args.Re)
 T = float(args.T)
 Dynamic_Subscales = str(args.Dynamic_Subscales)
+Kinetic_Energy = str(args.Kinetic_Energy)
 
 # Print output to tell user if dynamic subscales are on or off.
 if Dynamic_Subscales.lower() == 'yes':
     print("Dynamic subscales are ON.")
 else:
     print("Dynamic subscales are OFF. Formulation is now using quasi-static subscales.")
+
+# Print output to tell user if kinetic energy is being tracked.
+if Kinetic_Energy.lower() == 'yes':
+    print("Kinetic energy will be computed and tracked over time.")
+    # Generate kinetic energy storage matrix that will be returned once the entire script has finished running:
+    KE_Storage = np.empty([Nel,1])
+else:
+    print("Kinetic energy will not be computed.")
 
 # Hard-coded test values that were used for debugging and to ensure argparse was working properly.
 #Nel = int(10.0)
@@ -47,13 +59,13 @@ if(mpirank==0):
 
 # The definition of the isogeometric Taylor-Hood element.
 # Quadratic velocity.
-degs_velocity = [2,2]
+degs_velocity = [3,3]
 # Linear pressure.
-degs_pressure = [1,1]
+degs_pressure = [2,2]
 
 # Knot vectors for defining the control mesh.
-kvecs_velocity = [uniformKnots(degs_velocity[0],-math.pi,math.pi,Nel,False), uniformKnots(degs_velocity[1],-math.pi,math.pi,Nel,False)]
-kvecs_pressure = [uniformKnots(degs_pressure[0],-math.pi,math.pi,Nel,False), uniformKnots(degs_pressure[1],-math.pi,math.pi,Nel,False)]
+kvecs_velocity = [uniformKnots(degs_velocity[0],-math.pi,math.pi,Nel,False,continuityDrop=1), uniformKnots(degs_velocity[1],-math.pi,math.pi,Nel,False,continuityDrop=1)]
+kvecs_pressure = [uniformKnots(degs_pressure[0],-math.pi,math.pi,Nel,False,continuityDrop=1), uniformKnots(degs_pressure[1],-math.pi,math.pi,Nel,False,continuityDrop=1)]
 
 # Define a trivial mapping from parametric to physical space, via explicit
 # B-spline.  Extraction is done to triangular elements, to permit the use
@@ -157,6 +169,9 @@ def c_cons(a,v1,v2):
 def c_skew(a,v1,v2):
     return (0.5)*(c(a,v1,v2) + c_cons(a,v1,v2))
 
+# Equation (27) that appears in section 2.6:
+def KEnergy(v1,v2):
+    return 0.5*((math.sqrt(assemble(inner((v1 + v2),(v1 + v2))*spline.dx)))**2)
 
 ####### Initialize velocity/pressure functions #######
 
@@ -289,6 +304,11 @@ for step in range(0,N_STEPS):
     #shrink time-step maybe?
     spline.solveNonlinearVariationalProblem(residual_SUM,residual_SUM_jacobian,up_h)
     
+    # Track the decay of kinetic energy, if desired:
+    if Kinetic_Energy.lower() == 'yes':
+        print("Current KE: "+str(KEnergy(uh_mid,uP_mid))+".")
+        KE_Storage[step,0] = float(KEnergy(uh_mid,uP_mid))
+
     # Update old coarse-scale variables:
     up_old_h.assign(up_h)
 
@@ -304,6 +324,7 @@ e_p = ph - p_exact
 err_u_H1 = math.sqrt(assemble(inner(grad_e_u,grad_e_u)*spline.dx))
 err_p_L2 = math.sqrt(assemble(inner(e_p,e_p)*spline.dx))
 if(mpirank==0):
+    print("======= Final Results =======")
     print("log(h) = "+str(math.log(1.0/Nel)))
     print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
     print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
@@ -318,6 +339,31 @@ output_file.write(', h = '+str(1.0/Nel))
 output_file.write(', H^1 velocity error = '+str(err_u_H1))
 output_file.write(', L^2 pressure error = '+str(err_p_L2))
 output_file.close()
+
+# Print output to tell user if kinetic energy is being tracked.
+if Kinetic_Energy.lower() == 'yes':
+    #Verify that Kinetic Energy decreased over time:
+
+    #Define some "boolean" marker determining whether or not KE decreased. Default will be set to "Yes" as the theory expects.
+    bool_KE = "Yes"
+
+    #Simple for loop will check whether or not KE decreases over time. KE at time-step t+1 must be less than KE at time-step t.
+    for t in range(0,Nel-1):
+        bool_KE_Check = KE_Storage[t+1,0] - KE_Storage[t,0]
+        #If KE at time-step t+1 is larger than KE at time-step t, then set the boolean marker to "No".
+        if (bool_KE_Check > 0):
+            bool_KE = "NO"
+
+    #Print the answer to the question: "Did KE decrease or what"
+    #Yes/No answer printed directed to the command line so that you don't have to look through the output .mat file manually.
+    #If the answer output here is "No", then there is probably something wrong with the formulation.
+    print("Did Kinetic Energy decrease over time: "+str(bool_KE))
+
+    #Output a MATLAB matrix containing the tracked kinetic energy:
+    sio.savemat('Kinetic Energy Isogeometric.mat', {'KE_Storage': KE_Storage})
+
+#Placeholder comment.
+
 
 
 # Definition of Quasi-Static subscale definition of $u^'$ comes from equation (44) in paper.

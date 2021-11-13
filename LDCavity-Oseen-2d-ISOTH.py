@@ -1,5 +1,5 @@
 ## Author: Sajje <Sajje@COMA-PC>
-## Created: 2021-06-28
+## Created: 2021-11-10
 
 from tIGAr import *
 from tIGAr.compatibleSplines import *
@@ -7,6 +7,7 @@ from tIGAr.timeIntegration import *
 from tIGAr.BSplines import *
 import math
 import ufl
+from ufl import Max, Min
 import sys
 import argparse
 
@@ -18,8 +19,6 @@ sys.setrecursionlimit(10000)
 parser = argparse.ArgumentParser()
 parser.add_argument('--Nel',dest='Nel',default=10,help='Number of elements in each direction.')
 parser.add_argument('--Re',dest='Re',default=100.0,help='Reynolds number.')
-#parser.add_argument('--T',dest='T',default=1.0,help='Length of time interval to consider.') #This line is not needed since the problem is assumed to be steady.
-#parser.add_argument('--Dyn',dest='Dynamic_Subscales',default='Yes',help='"Yes" or "No" answer determining whether or not you want to use dynamic subscales.') #This line is not needed since the problem is assumed to be steady.
 
 # The commented out lines were kept in the case that we need to use this code for unsteady lid-driven cavity problems...
 
@@ -27,22 +26,6 @@ parser.add_argument('--Re',dest='Re',default=100.0,help='Reynolds number.')
 args = parser.parse_args()
 Nel = int(args.Nel)
 Re = float(args.Re)
-#T = float(args.T) #This line is not needed since the problem is assumed to be steady.
-#Dynamic_Subscales = str(args.Dynamic_Subscales) #This line is not needed since the problem is assumed to be steady.
-
-# Print output to tell user if dynamic subscales are on or off.
-#if Dynamic_Subscales.lower() == 'yes':
-#    print("Dynamic subscales are ON.")
-#else:
-#    print("Dynamic subscales are OFF. Formulation is now using quasi-staic subscales.")
-
-# None of the above is needed since the problem is assumed to be steady.
-print("Problem is steady. Defaulting to quasi-static subscale definitions.")
-
-#Nel = int(10.0)
-#Re = Constant(100.0)
-#T = float(1.0)
-#Dynamic_Subscales = "No"
 
 ####### Preprocessing #######
 
@@ -75,6 +58,7 @@ fieldList += [BSpline(degs_pressure,kvecs_pressure),]
 # Field containing fine-scale pressure.
 fieldList += [BSpline(degs_pressure,kvecs_pressure),]
 
+# Generate spline:
 splineGenerator = FieldListSpline(controlMesh,fieldList)
 
 # Apply strong BCs to normal velocity component and pin down one pressure DoF:
@@ -115,12 +99,23 @@ u_IC_nopressure = as_vector((x_velocity_exact,y_velocity_exact))
 # The exact solution for the pressure.
 p_IC = sin(pi*x[0])*sin(pi*x[1])
 
+# Set advection velocity $\textbf{a}$ to be the exact velocity solution:
+a = u_IC_nopressure
+
 ####### Operator and Form Definitions #######
 
 ## Operator definitions that appear in the formulation:
 
 # This definition of kinematic viscosity appears in the derivation of non-dimensionalized incompressible N-S equations...
 nu = 1.0/Re
+
+# Definition of global cell diameter h:
+h = 1/Nel
+
+#Definition of l2 norm of a vector: "verti"
+#Norm has to be computed this way because norm(u,'l2') doesn't work for some reason.
+def verti(u):
+    return math.sqrt(assemble(inner(u,u)*spline.dx))
 
 #Definition of symmetrized gradient of u, $\nabla_x^s u$:
 #This is also the rate of strain tensor $\epsilon$.
@@ -139,25 +134,17 @@ def nd_sigma(u):
 
 # Form definitions that appear in the formulation:
 
-# 2nd equation that appears in problem (V) in section 2.1:
+# Define: Convective Form (Section 2)
 def c(v1,v2,v3):
     return dot(dot(spline.grad(v2),v1),v3)*spline.dx
 
-# 3rd equation that appears in problem (V) in section 2.1:
+# Define: Diffusive Form (Section 2)
 def k(v1,v2):
     return inner(nd_sigma(v1),sym_grad(v2))*spline.dx
 
-# 4th equation that appears in problem (V) in section 2.1:
+# Define: Constraint Form (Section 2)
 def b(v,q):
     return (spline.div(v))*q*spline.dx
-
-# Equation (14) that appears in section 2.3:
-def c_cons(a,v1,v2):
-    return (-1.0)*dot(v1,dot(spline.grad(v2),a))*spline.dx
-
-# Equation (15) that appears in section 2.3:
-def c_skew(a,v1,v2):
-    return (0.5)*(c(a,v1,v2) + c_cons(a,v1,v2))
 
 ####### Initialize velocity/pressure functions #######
 
@@ -182,46 +169,37 @@ vq_h = TestFunction(spline.V)
 vh, qh, qP = unpack(vq_h)
 
 ####### Problem Formulation #######
-# Define mesh size metric:
-dx_dxiHat = 0.5*ufl.Jacobian(spline.mesh)
-G = inv(dx_dxiHat.T*dx_dxiHat)
-
 # Define stabilization parameters:
-C_I = Constant(60.0)
+C_I = Constant(60.0) # The choice of C_I = 60.0 above is "arbitrary."
 
-# The choice of C_I = 60.0 above is "arbitrary."
-
-# Definition of stabilization parameter $\tau_M$. There is no difference between dynamic and quasi-static subscale definition of $\tau_M$ since the problem is steady.
+# Definition of stabilization parameters are found in section 3.
+# Define stabilization parameter $\tau_M$.
 print("Generating stabilization parameter tau_M.")
-tau_M = 1.0/(sqrt(dot(uh,G*uh) + (C_I**2)*(nu**2)*inner(G,G)))
+tau_M_1 = h / 2*verti(a)
+tau_M_2 = (h*h) / (C_I*nu)
+tau_M = Min(tau_M_1,tau_M_2)
 
-# Define tau_C, not sure where this definition is from but yolo...
-tau_C = 1.0/(tau_M*tr(G))
+# Define $\tau_C$:
+print("Generating stabilization parameter tau_C.")
+tau_C_1 = h*verti(a)
+tau_C_2 = nu
+tau_C = Max(tau_C_1,tau_C_2)
 
-# Define residual of the momentum balance equation in problem (S); given by equation (12):
 # Here, f is not assumed to be zero. So first, manufacture the source term using the exact solution data:
 f = dot(spline.grad(u_IC_nopressure),u_IC_nopressure) + spline.grad(p_IC) - spline.div(nd_sigma(u_IC_nopressure))
 
-# Then compute residual:
-r_M = dot(spline.grad(uh),uh) - spline.div(nd_sigma(uh)) + spline.grad(ph) - f
-
-# Pick which definition of fine-scale velocity u' to use based on whether or not we are using dynamic or quasi-static subscales.
+# Definition of fine-scale velocity u'.
 print("Generating fine-scale velocity u'.")
-uP = (-1.0*tau_M)*(spline.grad(pP)) + (-1.0*tau_M)*(r_M)
+uP = tau_M*(f - dot(spline.grad(uh),a) + spline.div(nd_sigma(uh)) - spline.grad(pP))
 
-# Define coarse-scale subproblem found in problem $V^h$ in section 2.5 of the paper.
-print("Generating coarse-scale residual.")
-residual_coarse = c_skew(uh,uh,vh) + k(uh,vh) - b(vh,ph) + b(uh,qh) \
-                    + c_cons(uh,uP,vh) + c_skew(uP,uh,vh) + c_cons(uP,uP,vh) \
-                    + (tau_C)*(spline.div(uh))*(spline.div(vh))*spline.dx - inner(f,vh)*spline.dx
+# Define reduced formulation A_red:
+print("Generating reduced formulation.")
+A_red = c(a,uh,vh) + k(uh,vh) - b(vh,ph) + b(uh,qh) \
+            + inner(dot(spline.grad(uh),a) - spline.div(nd_sigma(uh)) + spline.grad(pP),tau_M*(dot(spline.grad(vh),a) + spline.grad(qP)))*spline.dx \
+            + (tau_C)*(spline.div(uh))*(spline.div(vh))*spline.dx
 
-# Define fine-scale subproblem found in problem $V^h$ found in section 2.5 of the paper:
-residual_fine = (-1.0)*inner(spline.grad(qP),uP)*spline.dx
-
-#The other terms are killed off because of static condensation on the $v^'$.
-
-# Define nonlinear residual by summing coarse and fine scale problems. Then define its Jacobian:
-residual_SUM = residual_coarse + residual_fine
+# Define nonlinear residual by summing reduced formulation and source term. Then define its Jacobian:
+residual_SUM = A_red - inner(f,vh)*spline.dx
 residual_SUM_jacobian = derivative(residual_SUM,up_h)
 
 ####### Start solving the problem #######
@@ -246,17 +224,10 @@ if(mpirank==0):
     print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
 
 #Output the required files to be read and processed.
-output_file = open('copypasta-ldcavity-Iso.txt','w')
+output_file = open('copypasta-ldcavity-Oseen-Iso.txt','w')
 output_file.write('Re = '+str(Re))
 output_file.write(', Nel = '+str(Nel))
 output_file.write(', h = '+str(1.0/Nel))
 output_file.write(', H^1 velocity error = '+str(err_u_H1))
 output_file.write(', L^2 pressure error = '+str(err_p_L2))
 output_file.close()
-
-# Definition of Quasi-Static subscale definition of $u^'$ comes from equation (44) in paper.
-# Formulation comes from definition of problem $V^h$ on page 7 on the paper.
-# Static-Condensation of fine scale velocity u' is found in section 2.7 of paper. Basically, all v' terms in fine-scale equation die and time derivative of u' die.
-
-
-
