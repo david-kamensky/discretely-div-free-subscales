@@ -40,7 +40,7 @@ degs_pressure = [2,2]
 
 # Knot vectors for defining the control mesh.
 kvecs_velocity = [uniformKnots(degs_velocity[0],0.0,1.0,Nel,False,continuityDrop=1), uniformKnots(degs_velocity[1],0.0,1.0,Nel,False,continuityDrop=1)]
-kvecs_pressure = [uniformKnots(degs_pressure[0],0.0,1.0,Nel,False,continuityDrop=1), uniformKnots(degs_pressure[1],0.0,1.0,Nel,False,continuityDrop=1)]
+kvecs_pressure = [uniformKnots(degs_pressure[0],0.0,1.0,Nel,False), uniformKnots(degs_pressure[1],0.0,1.0,Nel,False)]
 
 # Define a trivial mapping from parametric to physical space, via explicit
 # B-spline.  Extraction is done to triangular elements, to permit the use
@@ -110,12 +110,12 @@ a = u_IC_nopressure
 nu = 1.0/Re
 
 # Definition of global cell diameter h:
-h = 1/Nel
+h = Constant(1/Nel)
 
 #Definition of l2 norm of a vector: "verti"
 #Norm has to be computed this way because norm(u,'l2') doesn't work for some reason.
 def verti(u):
-    return math.sqrt(assemble(inner(u,u)*spline.dx))
+    return sqrt(inner(u,u))
 
 #Definition of symmetrized gradient of u, $\nabla_x^s u$:
 #This is also the rate of strain tensor $\epsilon$.
@@ -175,7 +175,7 @@ C_I = Constant(60.0) # The choice of C_I = 60.0 above is "arbitrary."
 # Definition of stabilization parameters are found in section 3.
 # Define stabilization parameter $\tau_M$.
 print("Generating stabilization parameter tau_M.")
-tau_M_1 = h / 2*verti(a)
+tau_M_1 = h / (2*verti(a))
 tau_M_2 = (h*h) / (C_I*nu)
 tau_M = Min(tau_M_1,tau_M_2)
 
@@ -199,7 +199,7 @@ A_red = c(a,uh,vh) + k(uh,vh) - b(vh,ph) + b(uh,qh) \
             + (tau_C)*(spline.div(uh))*(spline.div(vh))*spline.dx
 
 # Define nonlinear residual by summing reduced formulation and source term. Then define its Jacobian:
-residual_SUM = A_red - inner(f,vh)*spline.dx
+residual_SUM = A_red - inner(f,vh)*spline.dx - inner(f,tau_M*(dot(spline.grad(vh),a) + spline.grad(qP)))*spline.dx
 residual_SUM_jacobian = derivative(residual_SUM,up_h)
 
 ####### Start solving the problem #######

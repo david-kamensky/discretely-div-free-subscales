@@ -100,7 +100,7 @@ h = 1/Nel
 #Definition of l2 norm of a vector: "verti"
 #Norm has to be computed this way because norm(u,'l2') doesn't work for some reason.
 def verti(u):
-    return math.sqrt(assemble(inner(u,u)*dx))
+    return sqrt(inner(u,u))
 
 # Definition of "non-dimensionalized" cauchy stress sigma without pressure term and negative sign:
 def nd_sigma(u):
@@ -137,7 +137,7 @@ C_I = Constant(60.0) # The choice of C_I = 60.0 above is "arbitrary."
 # Definition of stabilization parameters are found in section 3.
 # Define stabilization parameter $\tau_M$.
 print("Generating stabilization parameter tau_M.")
-tau_M_1 = h / 2*verti(a)
+tau_M_1 = h / (2*verti(a))
 tau_M_2 = (h*h) / (C_I*nu)
 tau_M = Min(tau_M_1,tau_M_2)
 
@@ -161,7 +161,7 @@ A_red = c(a,uh,vh) + k(uh,vh) - b(vh,ph) + b(uh,qh) \
             + (tau_C)*(div(uh))*(div(vh))*dx
 
 # Define nonlinear residual by summing reduced formulation and source term. Then define its Jacobian:
-residual_SUM = A_red - inner(f,vh)*dx
+residual_SUM = A_red - inner(f,vh)*dx - inner(f,tau_M*(dot(grad(vh),a) + grad(qP)))*dx
 residual_SUM_jacobian = derivative(residual_SUM,w)
 
 ####### Start solving the problem #######

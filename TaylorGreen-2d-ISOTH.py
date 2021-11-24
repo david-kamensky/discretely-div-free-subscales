@@ -65,7 +65,7 @@ degs_pressure = [2,2]
 
 # Knot vectors for defining the control mesh.
 kvecs_velocity = [uniformKnots(degs_velocity[0],-math.pi,math.pi,Nel,False,continuityDrop=1), uniformKnots(degs_velocity[1],-math.pi,math.pi,Nel,False,continuityDrop=1)]
-kvecs_pressure = [uniformKnots(degs_pressure[0],-math.pi,math.pi,Nel,False,continuityDrop=1), uniformKnots(degs_pressure[1],-math.pi,math.pi,Nel,False,continuityDrop=1)]
+kvecs_pressure = [uniformKnots(degs_pressure[0],-math.pi,math.pi,Nel,False), uniformKnots(degs_pressure[1],-math.pi,math.pi,Nel,False)]
 
 # Define a trivial mapping from parametric to physical space, via explicit
 # B-spline.  Extraction is done to triangular elements, to permit the use
