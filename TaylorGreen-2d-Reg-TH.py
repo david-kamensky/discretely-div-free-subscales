@@ -83,10 +83,8 @@ G = inv(dx_dxiHat.T*dx_dxiHat)
 # Definition of the Taylor--Hood element, augmented with the fine-scale
 # pressure:
 cell = mesh.ufl_cell()
-u_el = VectorElement("Lagrange",cell,2,
-                     quad_scheme="default")
-p_el = FiniteElement("Lagrange",cell,1,
-                     quad_scheme="default")
+u_el = VectorElement("Lagrange",cell,2)
+p_el = FiniteElement("Lagrange",cell,1)
 pPrime_el = p_el
 
 # Unfortunately, a mixed element including the quadrature representation of
