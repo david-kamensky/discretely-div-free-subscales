@@ -92,10 +92,10 @@ a = u_IC
 ## Operator definitions that appear in the formulation:
 
 # This definition of kinematic viscosity appears in the derivation of non-dimensionalized incompressible N-S equations...
-nu = 1.0/Re
+nu = Constant(1.0/Re)
 
 # Definition of global cell diameter h:
-h = 1/Nel
+h = Constant(1/Nel)
 
 #Definition of l2 norm of a vector: "verti"
 #Norm has to be computed this way because norm(u,'l2') doesn't work for some reason.

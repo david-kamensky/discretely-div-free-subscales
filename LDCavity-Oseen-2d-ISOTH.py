@@ -107,7 +107,7 @@ a = u_IC_nopressure
 ## Operator definitions that appear in the formulation:
 
 # This definition of kinematic viscosity appears in the derivation of non-dimensionalized incompressible N-S equations...
-nu = 1.0/Re
+nu = Constant(1.0/Re)
 
 # Definition of global cell diameter h:
 h = Constant(1/Nel)
