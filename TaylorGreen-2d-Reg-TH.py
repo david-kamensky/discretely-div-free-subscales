@@ -147,10 +147,9 @@ def c_cons(a,v1,v2):
 def c_skew(a,v1,v2):
     return 0.5*(c(a,v1,v2) + c_cons(a,v1,v2))
 
-# Equation (27) that appears in section 2.6:
+# Kinetic energy of coarse + fine scale solutions:
 def KEnergy(v1,v2):
     return 0.5*((math.sqrt(assemble(inner((v1 + v2),(v1 + v2))*dx)))**2)
-
 
 # Definition of stabilization parameters:
 C_I = Constant(60.0)
@@ -160,7 +159,7 @@ if(not DYN_SUBSCALES):
 tau_M = 1.0/sqrt(tau_M_denom2)
 tau_C = 1.0/(tau_M*tr(G))
 
-# Residual of the strong problem
+# Residual of the strong problem:
 r_M = uh_t + Ladv(uh_mid,uh_mid) - div(sigmaVisc(uh_mid)) + grad(ph)
 
 # Choose which branch of coarse-scale residual to use, based on whether we are using dynamic or quasi-static subscales.
@@ -196,7 +195,6 @@ else:
              + c_cons(uh_mid,uPrime_mid,v) + c_skew(uPrime_mid,uh_mid,v) \
              + c_cons(uPrime_mid,uPrime_mid,v) \
              + tau_C*div(uh_mid)*div(v)*dx
-
 
 # Remaining fine-scale subproblem, after statically condensing-out
 # the $v'$ equations:
@@ -265,7 +263,7 @@ if(mpirank==0):
     print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
 
 #Output the required files to be read and processed.
-output_file = open('copypasta-tg.txt','w')
+output_file = open('data-tg.txt','w')
 output_file.write('Nel = '+str(Nel))
 output_file.write(', h = '+str(1.0/Nel))
 output_file.write(', H^1 velocity error = '+str(err_u_H1))
@@ -274,24 +272,22 @@ output_file.close()
 
 # Print output to tell user if kinetic energy is being tracked.
 if(KE):
-    #Verify that Kinetic Energy decreased over time:
-
-    #Define some "boolean" marker determining whether or not KE decreased. Default will be set to "Yes" as the theory expects.
+    # Verify that Kinetic Energy decreased over time:
+    # Define some "boolean" marker determining whether or not KE decreased. Default will be set to "Yes" as the theory expects.
     bool_KE = "Yes"
-
-    #Simple for loop will check whether or not KE decreases over time. KE at time-step t+1 must be less than KE at time-step t.
+    # Simple for loop will check whether or not KE decreases over time. KE at time-step t+1 must be less than KE at time-step t.
     for t in range(0,Nel-1):
         bool_KE_Check = KE_Storage[t+1,0] - KE_Storage[t,0]
-        #If KE at time-step t+1 is larger than KE at time-step t, then set the boolean marker to "No".
+        # If KE at time-step t+1 is larger than KE at time-step t, then set the boolean marker to "No".
         if (bool_KE_Check > 0):
             bool_KE = "NO"
 
-    #Print the answer to the question: "Did KE decrease or what"
-    #Yes/No answer printed directed to the command line so that you don't have to look through the output .mat file manually.
-    #If the answer output here is "No", then there is probably something wrong with the formulation.
+    # Print the answer to the question: "Did KE decrease?"
+    # Yes/No answer printed directed to the command line so that you don't have to look through the output .mat file manually.
+    # If the answer output here is "No", then there is probably something wrong with the formulation.
     print("Did Kinetic Energy decrease over time: "+str(bool_KE))
 
-    #Output a MATLAB matrix containing the tracked kinetic energy:
+    # Output a MATLAB matrix containing the tracked kinetic energy:
     sio.savemat('Kinetic Energy Regular.mat', {'KE_Storage': KE_Storage})
 
 

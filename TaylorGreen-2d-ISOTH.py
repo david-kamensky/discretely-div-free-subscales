@@ -46,12 +46,6 @@ if Kinetic_Energy.lower() == 'yes':
 else:
     print("Kinetic energy will not be computed.")
 
-# Hard-coded test values that were used for debugging and to ensure argparse was working properly.
-#Nel = int(10.0)
-#Re = Constant(100.0)
-#T = float(1.0)
-#Dynamic_Subscales = "No"
-
 ####### Preprocessing #######
 
 if(mpirank==0):
@@ -108,11 +102,11 @@ spline = ExtractedSpline(splineGenerator,Quadrature_Degree)
 # Initial condition for the Taylor--Green vortex
 x = spline.spatialCoordinates()
 
-# Put the velocity solution together. Component 3 and 4 are the coarse-scale and fine-scale pressure fields respectively.
+# Put the velocity solution together. Components 3 and 4 are the coarse-scale and fine-scale pressure fields respectively.
 # They need to be added here to avoid shape-error when this solution is projected into the initial velocity field later.
 u_IC = as_vector((sin(x[0])*cos(x[1]),-cos(x[0])*sin(x[1]),0,0))
 
-#Initial conidtion of velocity u without the pressure fields added in component 3,4. This is used when checking the error later.
+#Initial conidtion of velocity u without the pressure fields added in components 3 and 4. This is used when checking the error later.
 u_IC_nopressure = as_vector((sin(x[0])*cos(x[1]),-cos(x[0])*sin(x[1])))
 
 # The pressure is made zero at corners by the non-standard `- 2.0`; the
@@ -129,47 +123,31 @@ solnt = Expression("exp(-2.0*nu*t)",nu=1.0/float(Re),t=0.0,degree=1)
 
 ## Operator definitions that appear in the formulation:
 
-# This definition of kinematic viscosity appears in the derivation of non-dimensionalized incompressible N-S equations...
-nu = 1.0/Re
+# Kinematic viscosity:
+nu = Constant(1.0/Re)
 
-#Definition of symmetrized gradient of u, $\nabla_x^s u$:
-#This is also the rate of strain tensor $\epsilon$.
+# Definition of symmetrized gradient of u, $\nabla_x^s u$:
+# This is also the rate of strain tensor $\epsilon$.
 def sym_grad(u):
     return 0.5*(spline.grad(u) + spline.grad(u).T)
 
-# spline.grad(u).T is the transpose of grad(u).
-
-# Definition of "non-dimensionalized" cauchy stress sigma without pressure term and negative sign:
+# Non-dimensionalized viscous contribution to Cauchy stress:
 def nd_sigma(u):
     return 2.0*nu*sym_grad(u)
 
-# The defintion above comes from "non-dimensionalizing" unsteady incompressible NS equations and separating the "pressure" and "kinematic viscosity" parts.
-# If the assumption that density $\rho = 1$ is made, then you can just divide the entire incopressible NS equations by $\rho$ to obtain the first equation
-# that appears in problem S of section 2.1.
-
 # Form definitions that appear in the formulation:
-
-# 2nd equation that appears in problem (V) in section 2.1:
 def c(v1,v2,v3):
     return dot(dot(spline.grad(v2),v1),v3)*spline.dx
-
-# 3rd equation that appears in problem (V) in section 2.1:
 def k(v1,v2):
     return inner(nd_sigma(v1),sym_grad(v2))*spline.dx
-
-# 4th equation that appears in problem (V) in section 2.1:
 def b(v,q):
     return (spline.div(v))*q*spline.dx
-
-# Equation (14) that appears in section 2.3:
 def c_cons(a,v1,v2):
     return (-1.0)*dot(v1,dot(spline.grad(v2),a))*spline.dx
-
-# Equation (15) that appears in section 2.3:
 def c_skew(a,v1,v2):
     return (0.5)*(c(a,v1,v2) + c_cons(a,v1,v2))
 
-# Equation (27) that appears in section 2.6:
+# Kinetic energy of the coarse + fine solutions:
 def KEnergy(v1,v2):
     return 0.5*((math.sqrt(assemble(inner((v1 + v2),(v1 + v2))*spline.dx)))**2)
 
@@ -238,11 +216,10 @@ else:
     print("Using quasi-static subscale definition of stabilization parameter tau_M.")
     tau_M = 1.0/(sqrt((4.0/(Dt**2)) + dot(uh_mid,G*uh_mid) + (C_I**2)*(nu**2)*inner(G,G)))
 
-# Define tau_C, not sure where this definition is from but yolo...
+# Define tau_C in terms of tau_M:
 tau_C = 1.0/(tau_M*tr(G))
 
-# Define residual of the momentum balance equation in problem (S); given by equation (12):
-# Here, f is assumed to be zero.
+# Strong residual of momentum balance, with zero source term:
 r_M = uh_t + dot(spline.grad(uh_mid),uh_mid) - spline.div(nd_sigma(uh_mid)) + spline.grad(ph)
 
 # Pick which definition of fine-scale velocity u' to use based on whether or not we are using dynamic or quasi-static subscales.
@@ -250,22 +227,21 @@ if Dynamic_Subscales.lower() == 'yes':
     print("Using dynamic subscales definition of u'.")
     # Definition of dynamic subscale u' is found in equation (42) of the paper.
     I = Identity(spline.mesh.geometry().dim())
-    #From taylor-green-2d-th.py
     LHS = (1.0/Dt + 0.5/tau_M)*I + 0.5*spline.grad(uh_mid)
     RHS = -r_M - spline.grad(pP) + (1.0/Dt)*uP_old - (0.5/tau_M)*uP_old - 0.5*spline.grad(uh_mid)*uP_old
     uP = inv(LHS)*RHS
 
-    #Get midpoint u' velocity:
+    # Get midpoint u' velocity:
     uP_mid = 0.5*(uP + uP_old)
 
-    #Get time-derivative of u' velocity:
+    # Get time-derivative of u' velocity:
     uP_t = (uP - uP_old)/Dt
 else:
     print("Using quasi-static subscale definition of u'.")
     uP_mid = (-1.0*tau_M)*(spline.grad(pP)) + (-1.0*tau_M)*(r_M)
 
 
-# Define coarse-scale subproblem found in problem $V^h$ in section 2.5 of the paper.
+# Define coarse-scale subproblem:
 if Dynamic_Subscales.lower() == 'yes':
     print("Using dynamic subscales definition of the coarse-scale residual.")
     # Definition of coarse-scale residual for dynamic subscale definition.
@@ -274,7 +250,7 @@ if Dynamic_Subscales.lower() == 'yes':
                     + (tau_C)*(spline.div(uh_mid))*(spline.div(vh))*spline.dx
 else:
     print("Using quasi-static subscale definition of the coarse-scale residual.")
-    #The time-derivative term of $u^'$ in problem $V^h$ is not included in the residual below. In the quasi-static subscale case, this term is zero.
+    # The time-derivative term of $u^'$ in problem $V^h$ is not included in the residual below. In the quasi-static subscale case, this term is zero.
     residual_coarse = inner(uh_t,vh)*spline.dx + c_skew(uh_mid,uh_mid,vh) + k(uh_mid,vh) - b(vh,ph) + b(uh_mid,qh) \
                     + c_cons(uh_mid,uP_mid,vh) + c_skew(uP_mid,uh_mid,vh) + c_cons(uP_mid,uP_mid,vh) \
                     + (tau_C)*(spline.div(uh_mid))*(spline.div(vh))*spline.dx
@@ -283,9 +259,9 @@ else:
 # Define fine-scale subproblem found in problem $V^h$ found in section 2.5 of the paper:
 residual_fine = (-1.0)*inner(spline.grad(qP),uP_mid)*spline.dx
 
-#The other terms are killed off because of static condensation on the $v^'$.
+# The other terms are killed off because of static condensation on the $v^'$.
 
-# Define nonlinear residual by summing coarse and fine scale problems. Then define its Jacobian:
+# Define nonlinear residual by summing coarse and fine scale problems. 
 residual_SUM = residual_coarse + residual_fine
 residual_SUM_jacobian = derivative(residual_SUM,up_h)
 
@@ -301,7 +277,6 @@ for step in range(0,N_STEPS):
         print("Current time: "+str(float(Dt*(step+1)))+" seconds.")
 
     #Compute up_h
-    #shrink time-step maybe?
     spline.solveNonlinearVariationalProblem(residual_SUM,residual_SUM_jacobian,up_h)
     
     # Track the decay of kinetic energy, if desired:
@@ -329,8 +304,8 @@ if(mpirank==0):
     print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
     print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
 
-#Output the required files to be read and processed.
-output_file = open('copypasta-tg-Iso.txt','w')
+# Output the required files to be read and processed.
+output_file = open('data-tg-Iso.txt','w')
 output_file.write('Using dynamic subscales? '+str(Dynamic_Subscales))
 output_file.write(', Re = '+str(Re))
 output_file.write(', Time Length = '+str(T))
@@ -344,28 +319,20 @@ output_file.close()
 if Kinetic_Energy.lower() == 'yes':
     #Verify that Kinetic Energy decreased over time:
 
-    #Define some "boolean" marker determining whether or not KE decreased. Default will be set to "Yes" as the theory expects.
+    # Define some "boolean" marker determining whether or not KE decreased. Default will be set to "Yes" as the theory expects.
     bool_KE = "Yes"
 
-    #Simple for loop will check whether or not KE decreases over time. KE at time-step t+1 must be less than KE at time-step t.
+    # Simple for loop will check whether or not KE decreases over time. KE at time-step t+1 must be less than KE at time-step t.
     for t in range(0,Nel-1):
         bool_KE_Check = KE_Storage[t+1,0] - KE_Storage[t,0]
-        #If KE at time-step t+1 is larger than KE at time-step t, then set the boolean marker to "No".
+        # If KE at time-step t+1 is larger than KE at time-step t, then set the boolean marker to "No".
         if (bool_KE_Check > 0):
             bool_KE = "NO"
 
-    #Print the answer to the question: "Did KE decrease or what"
-    #Yes/No answer printed directed to the command line so that you don't have to look through the output .mat file manually.
-    #If the answer output here is "No", then there is probably something wrong with the formulation.
+    # Print the answer to the question: "Did KE decrease?"
+    # Yes/No answer printed directed to the command line so that you don't have to look through the output .mat file manually.
+    # If the answer output here is "No", then there is probably something wrong with the formulation.
     print("Did Kinetic Energy decrease over time: "+str(bool_KE))
 
-    #Output a MATLAB matrix containing the tracked kinetic energy:
+    # Output a MATLAB matrix containing the tracked kinetic energy:
     sio.savemat('Kinetic Energy Isogeometric.mat', {'KE_Storage': KE_Storage})
-
-#Placeholder comment.
-
-
-
-# Definition of Quasi-Static subscale definition of $u^'$ comes from equation (44) in paper.
-# Formulation comes from definition of problem $V^h$ on page 7 on the paper.
-# Static-Condensation of fine scale velocity u' is found in section 2.7 of paper. Basically, all v' terms in fine-scale equation die and time derivative of u' die.
