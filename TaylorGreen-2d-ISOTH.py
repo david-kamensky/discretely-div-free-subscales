@@ -204,15 +204,13 @@ G = inv(dx_dxiHat.T*dx_dxiHat)
 # Define stabilization parameters:
 C_I = Constant(60.0)
 
-# The choice of C_I = 60.0 above is "arbitrary."
-
 # Pick which definition of stabilization parameter $\tau_M$ to use based on whether or not we are using dynamic or quasi-static subscales.
 if Dynamic_Subscales.lower() == 'yes':
-    #Using dynamic subscale definition of parameter $\tau_M$:
+    # Using dynamic subscale definition of parameter $\tau_M$:
     print("Using dynamic subscales definition of stabilization parameter tau_M.")
     tau_M = 1.0/(sqrt(dot(uh_mid,G*uh_mid) + (C_I**2)*(nu**2)*inner(G,G)))
 else:
-    #Using quasi-static subscale definition of parameter $\tau_M$:
+    # Using quasi-static subscale definition of parameter $\tau_M$:
     print("Using quasi-static subscale definition of stabilization parameter tau_M.")
     tau_M = 1.0/(sqrt((4.0/(Dt**2)) + dot(uh_mid,G*uh_mid) + (C_I**2)*(nu**2)*inner(G,G)))
 
