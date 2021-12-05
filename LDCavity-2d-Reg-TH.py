@@ -128,7 +128,7 @@ if(MPI.rank(MPI.comm_world)==0):
     print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
 
 #Output the required files to be read and processed.
-output_file = open('copypasta-ldc.txt','w')
+output_file = open('data-ldc.txt','w')
 output_file.write('Nel = '+str(Nel))
 output_file.write(', h = '+str(1.0/Nel))
 output_file.write(', H^1 velocity error = '+str(err_u_H1))
