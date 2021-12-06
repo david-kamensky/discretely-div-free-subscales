@@ -18,11 +18,14 @@ sys.setrecursionlimit(10000)
 parser = argparse.ArgumentParser()
 parser.add_argument('--Nel',dest='Nel',default=10,help='Number of elements in each direction.')
 parser.add_argument('--Re',dest='Re',default=100.0,help='Reynolds number.')
+parser.add_argument('--GALERKIN',dest='GALERKIN',action='store_true',
+                    help='Use the Bubnov--Galerkin method.')
 
 # Initial Input Data
 args = parser.parse_args()
 Nel = int(args.Nel)
 Re = float(args.Re)
+GALERKIN = bool(args.GALERKIN)
 
 ####### Preprocessing #######
 
@@ -125,6 +128,10 @@ tau_C_1 = h*verti(a)
 tau_C_2 = nu
 tau_C = Max(tau_C_1,tau_C_2)
 
+if(GALERKIN):
+    tau_M = Constant(0)
+    tau_C = Constant(0)
+
 # Source term to manufacture exact solution:
 f = dot(grad(u_IC),u_IC) + grad(p_IC) - div(nd_sigma(u_IC))
 
@@ -135,6 +142,11 @@ uP = tau_M*(f - dot(grad(uh),a) + div(nd_sigma(uh)) - grad(pP))
 A_red = c(a,uh,vh) + k(uh,vh) - b(vh,ph) + b(uh,qh) \
             + inner(dot(grad(uh),a) - div(nd_sigma(uh)) + grad(pP),tau_M*(dot(grad(vh),a) + grad(qP)))*dx \
             + (tau_C)*(div(uh))*(div(vh))*dx
+
+if(GALERKIN):
+    # Simply set the fine scale pressure to zero if using no
+    # stabilization.
+    A_red += pP*qP*dx
 
 # Define nonlinear residual by summing reduced formulation and source term. 
 residual_SUM = A_red - inner(f,vh)*dx - inner(f,tau_M*(dot(grad(vh),a) + grad(qP)))*dx
