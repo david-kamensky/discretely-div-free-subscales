@@ -120,7 +120,7 @@ if(mpirank==0):
 
 ####### Problem Formulation #######
 # Define stabilization parameters:
-C_I = Constant(6.0)
+C_I = Constant(60.0)
 tau_M_1 = h / (2*verti(a))
 tau_M_2 = (h*h) / (C_I*nu)
 tau_M = Min(tau_M_1,tau_M_2)
