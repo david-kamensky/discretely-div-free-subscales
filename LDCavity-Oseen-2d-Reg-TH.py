@@ -120,7 +120,7 @@ if(mpirank==0):
 
 ####### Problem Formulation #######
 # Define stabilization parameters:
-C_I = Constant(60.0)
+C_I = Constant(6.0)
 tau_M_1 = h / (2*verti(a))
 tau_M_2 = (h*h) / (C_I*nu)
 tau_M = Min(tau_M_1,tau_M_2)
@@ -155,7 +155,8 @@ residual_SUM_jacobian = derivative(residual_SUM,w)
 ####### Start solving the problem #######
 
 # Compute up_h
-solve(residual_SUM==0,w,J=residual_SUM_jacobian,bcs=bcs)
+solve(residual_SUM==0,w,J=residual_SUM_jacobian,bcs=bcs,
+      solver_parameters={"newton_solver":{"linear_solver":"mumps"}})
 
 ####### Postprocessing #######
 
@@ -163,11 +164,15 @@ solve(residual_SUM==0,w,J=residual_SUM_jacobian,bcs=bcs)
 # Compute and print error:
 err_u_H1 = math.sqrt(assemble(inner(grad(uh - u_IC),grad(uh - u_IC))*dx))
 err_p_L2 = math.sqrt(assemble(inner(ph - p_IC,ph -p_IC)*dx))
+err_stream = math.sqrt(assemble(tau_M_1*inner(dot(grad(uh-u_IC),a),
+                                              dot(grad(uh-u_IC),a))*dx))
 
 if(mpirank==0):
     print("======= Final Results =======")
     print("log(h) = "+str(math.log(1.0/Nel)))
+    print("log(Re) = "+str(math.log(float(Re))))
     print("log(H^1 velocity error) = "+str(math.log(err_u_H1)))
+    print("log(streamline error) = "+str(math.log(err_stream)))
     print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
 
 # Output the required files to be read and processed.
@@ -178,3 +183,7 @@ output_file.write(', h = '+str(1.0/Nel))
 output_file.write(', H^1 velocity error = '+str(err_u_H1))
 output_file.write(', L^2 pressure error = '+str(err_p_L2))
 output_file.close()
+
+u,_,_ = w.split()
+u.rename("u","u")
+File("u.pvd") << u
