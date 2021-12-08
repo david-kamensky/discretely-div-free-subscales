@@ -199,7 +199,7 @@ vh, qh, qP = unpack(vq_h)
 
 # Define mesh size metric:
 dx_dxiHat = 0.5*ufl.Jacobian(spline.mesh)
-G = inv(dx_dxiHat.T*dx_dxiHat)
+G = inv(dx_dxiHat*dx_dxiHat.T)
 
 # Define stabilization parameters:
 C_I = Constant(60.0)

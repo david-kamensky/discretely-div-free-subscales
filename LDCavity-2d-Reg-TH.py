@@ -36,7 +36,7 @@ dx = dx(metadata={"quadrature_degree":QUAD_DEG})
 # Mesh and derivation of mesh-size metric:
 mesh = UnitSquareMesh(Nel,Nel)
 dx_dxiHat = 0.5*ufl.Jacobian(mesh)
-G = inv(dx_dxiHat.T*dx_dxiHat)
+G = inv(dx_dxiHat*dx_dxiHat.T)
 
 # Definition of the Taylor--Hood element, augmented with the fine-scale
 # pressure:

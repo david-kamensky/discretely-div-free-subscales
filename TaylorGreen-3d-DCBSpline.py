@@ -228,7 +228,7 @@ def Ladv(v,q):
 dxi_dxiHat = 0.5*ufl.Jacobian(spline.mesh)
 dx_dxi = spline.parametricGrad(spline.F)
 dx_dxiHat = dx_dxi*dxi_dxiHat
-Ginv = dx_dxiHat.T*dx_dxiHat
+Ginv = dx_dxiHat*dx_dxiHat.T
 G = inv(Ginv)
 
 # Defining the stabilization constants:

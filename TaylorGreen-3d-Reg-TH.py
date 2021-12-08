@@ -89,7 +89,7 @@ mesh = BoxMesh(Point(0.0,0.0,0.0),
                Point(math.pi,math.pi,math.pi),
                Nel,Nel,Nel)
 dx_dxiHat = 0.5*ufl.Jacobian(mesh)
-G = inv(dx_dxiHat.T*dx_dxiHat)
+G = inv(dx_dxiHat*dx_dxiHat.T)
 
 # Definition of the Taylor--Hood element, augmented with the fine-scale
 # pressure:
