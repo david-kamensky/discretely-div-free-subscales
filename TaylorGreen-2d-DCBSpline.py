@@ -84,7 +84,7 @@ controlMesh = ExplicitBSplineControlMesh(degs,kvecs,useRect=False)
 # Define the spaces for RT-type compatible splines on this geometry.
 fieldList = generateFieldsCompat(controlMesh,"RT",degs)
 # Include an extra scalar field for the fine-scale pressure.
-fieldList += [BSpline(degs,kvecs),]
+fieldList += [BSpline(degs,kvecs,useRect=False),]
 splineGenerator = FieldListSpline(controlMesh,fieldList)
 
 # Apply strong BCs to normal velocity component and pin down one pressure DoF:
