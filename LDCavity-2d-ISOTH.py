@@ -40,9 +40,8 @@ kvecs_velocity = [uniformKnots(degs_velocity[0],0.0,1.0,Nel,False,continuityDrop
 kvecs_pressure = [uniformKnots(degs_pressure[0],0.0,1.0,Nel,False), uniformKnots(degs_pressure[1],0.0,1.0,Nel,False)]
 
 # Define a trivial mapping from parametric to physical space, via explicit
-# B-spline.  Extraction is done to triangular elements, to permit the use
-# of Quadrature-type elements for the dynamic subgrid scales.
-controlMesh = ExplicitBSplineControlMesh(degs_velocity,kvecs_velocity,useRect=False)
+# B-spline.  
+controlMesh = ExplicitBSplineControlMesh(degs_velocity,kvecs_velocity)
 
 # Initialize field list to be blank, then add four fields...
 fieldList = []
