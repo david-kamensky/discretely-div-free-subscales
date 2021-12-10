@@ -41,9 +41,8 @@ kvecs_velocity = [uniformKnots(degs_velocity[0],0.0,1.0,Nel,False,continuityDrop
 kvecs_pressure = [uniformKnots(degs_pressure[0],0.0,1.0,Nel,False), uniformKnots(degs_pressure[1],0.0,1.0,Nel,False)]
 
 # Define a trivial mapping from parametric to physical space, via explicit
-# B-spline.  Extraction is done to triangular elements, to permit the use
-# of Quadrature-type elements for the dynamic subgrid scales.
-controlMesh = ExplicitBSplineControlMesh(degs_velocity,kvecs_velocity,useRect=False)
+# B-spline.  
+controlMesh = ExplicitBSplineControlMesh(degs_velocity,kvecs_velocity)
 
 # Initialize field list to be blank, then add four fields...
 fieldList = []
@@ -185,6 +184,7 @@ residual_SUM_jacobian = derivative(residual_SUM,up_h)
 up_h.assign(spline.project(u_IC,applyBCs=False,rationalize=False,lumpMass=False))
 
 #Compute up_h
+spline.linearSolver = PETScLUSolver("mumps")
 spline.solveNonlinearVariationalProblem(residual_SUM,residual_SUM_jacobian,up_h)
 
 ####### Postprocessing #######
