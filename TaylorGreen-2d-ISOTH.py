@@ -305,7 +305,7 @@ if(mpirank==0):
     print("log(L^2 pressure error) = "+str(math.log(err_p_L2)))
 
 # Output the required files to be read and processed.
-output_file = open('data-tg-Iso.txt','w')
+output_file = open('data-tg-Iso.txt','a')
 output_file.write('Using dynamic subscales? '+str(Dynamic_Subscales))
 output_file.write(', Re = '+str(Re))
 output_file.write(', Time Length = '+str(T))
@@ -313,6 +313,7 @@ output_file.write(', Nel = '+str(Nel))
 output_file.write(', h = '+str(1.0/Nel))
 output_file.write(', H^1 velocity error = '+str(err_u_H1))
 output_file.write(', L^2 pressure error = '+str(err_p_L2))
+output_file.write('\r\n')
 output_file.close()
 
 # Print output to tell user if kinetic energy is being tracked.
