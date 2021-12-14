@@ -64,18 +64,20 @@ kvecs_pressure = [uniformKnots(degs_pressure[0],-math.pi,math.pi,Nel,False), uni
 # Define a trivial mapping from parametric to physical space, via explicit
 # B-spline.  Extraction is done to triangular elements, to permit the use
 # of Quadrature-type elements for the dynamic subgrid scales.
-controlMesh = ExplicitBSplineControlMesh(degs_velocity,kvecs_velocity,useRect=False)
+useRect=False
+controlMesh = ExplicitBSplineControlMesh(degs_velocity,kvecs_velocity,
+                                         useRect=useRect)
 
 # Initialize field list to be blank, then add four fields...
 fieldList = []
 # Field containing x-component velocity.
-fieldList += [BSpline(degs_velocity,kvecs_velocity),]
+fieldList += [BSpline(degs_velocity,kvecs_velocity,useRect=useRect),]
 # Field containing y-component velocity.
-fieldList += [BSpline(degs_velocity,kvecs_velocity),]
+fieldList += [BSpline(degs_velocity,kvecs_velocity,useRect=useRect),]
 # Field containing coarse-scale pressure.
-fieldList += [BSpline(degs_pressure,kvecs_pressure),]
+fieldList += [BSpline(degs_pressure,kvecs_pressure,useRect=useRect),]
 # Field containing fine-scale pressure.
-fieldList += [BSpline(degs_pressure,kvecs_pressure),]
+fieldList += [BSpline(degs_pressure,kvecs_pressure,useRect=useRect),]
 
 splineGenerator = FieldListSpline(controlMesh,fieldList)
 
