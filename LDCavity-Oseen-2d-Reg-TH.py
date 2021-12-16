@@ -85,7 +85,10 @@ bcs = [DirichletBC(X.sub(0),u_expr,"on_boundary"),
        DirichletBC(X.sub(2),Constant(0.0),corner_str,"pointwise")]
 
 # Set advection velocity $\textbf{a}$ to be the exact velocity solution:
-a = u_IC
+#a = u_IC
+
+# Spatially-uniform advection velocity, to match analysis:
+a = Constant((0.5*math.sqrt(3.0),0.5))
 
 ####### Operator and Form Definitions #######
 
@@ -133,7 +136,7 @@ if(GALERKIN):
     tau_C = Constant(0)
 
 # Source term to manufacture exact solution:
-f = dot(grad(u_IC),u_IC) + grad(p_IC) - div(nd_sigma(u_IC))
+f = dot(grad(u_IC),a) + grad(p_IC) - div(nd_sigma(u_IC))
 
 # Definition of fine-scale velocity u'.
 uP = tau_M*(f - dot(grad(uh),a) + div(nd_sigma(uh)) - grad(pP))

@@ -97,7 +97,10 @@ u_IC_nopressure = as_vector((x_velocity_exact,y_velocity_exact))
 p_IC = sin(pi*x[0])*sin(pi*x[1])
 
 # Set advection velocity $\textbf{a}$ to be the exact velocity solution:
-a = u_IC_nopressure
+#a = u_IC_nopressure
+
+# Spatially-uniform advection velocity, to match analysis:
+a = Constant((0.5*math.sqrt(3.0),0.5))
 
 ####### Operator and Form Definitions #######
 
@@ -164,7 +167,7 @@ tau_C_2 = nu
 tau_C = Max(tau_C_1,tau_C_2)
 
 # Source term to manufacture exact solution:
-f = dot(spline.grad(u_IC_nopressure),u_IC_nopressure) + spline.grad(p_IC) - spline.div(nd_sigma(u_IC_nopressure))
+f = dot(spline.grad(u_IC_nopressure),a) + spline.grad(p_IC) - spline.div(nd_sigma(u_IC_nopressure))
 
 # Definition of fine-scale velocity u':
 uP = tau_M*(f - dot(spline.grad(uh),a) + spline.div(nd_sigma(uh)) - spline.grad(pP))
