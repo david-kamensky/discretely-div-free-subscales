@@ -1,20 +1,24 @@
 # Variational multiscale modeling with discretely divergence-free subscales
 This repository contains FEniCS and tIGAr-based scripts to accompany the papers
 ```
-@article{Evans2019a,
+@article{Evans2020,
 title = "Variational multiscale modeling with discretely divergence-free subscales",
-journal = "Computers and Mathematics with Applications",
+journal = "Computers \& Mathematics with Applications",
+volume = "80",
+number = "11",
+pages = "2517--2537",
+year = "2020",
+note = "High-Order Finite Element and Isogeometric Methods 2019",
+issn = "0898-1221",
 author = "J. A. Evans and D. Kamensky and Y. Bazilevs",
-year = "2019",
-note = "Under review."
 }
 
-@article{Evans2019b,
-title = "Analysis of the method of discretely divergence-free subscales for non-divergence conforming discretizations",
-journal = "Mathematical Models and Methods in Applied Sciences",
-author = "J. A. Evans and D. Kamensky",
-year = "2019",
-note = "In preparation."
+@article{Calfy2021,
+title = "Variational multiscale modeling with discretely divergence-free subscales: Non-divergence-conforming discretizations",
+journal = "Computers \& Mathematics with Applications",
+author = "S. L. Calfy and J. A. Evans and D. Kamensky",
+year = "2021",
+note = "Under review."
 }
 ```
 Usage requires [FEniCS](https://fenicsproject.org/), version 2019.1.  Isogeometric examples also require [tIGAr](https://github.com/david-kamensky/tIGAr).  Installation information for tIGAr can be found in the linked repository's README file.  Some examples require [TSFC](https://doi.org/10.1137/17M1130642), which can be installed for FEniCS as follows:
